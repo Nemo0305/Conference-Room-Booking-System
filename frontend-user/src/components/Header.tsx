@@ -1,0 +1,136 @@
+import { Buildings, Bell, User, CirclesFour, MagnifyingGlass, CalendarBlank, Ticket, Question } from '@phosphor-icons/react';
+import React, { useState, useRef, useEffect } from 'react';
+
+interface HeaderProps {
+    currentView: string;
+    onNavigate: (view: string) => void;
+}
+
+const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
+    const [showNotifications, setShowNotifications] = useState(false);
+    const notifRef = useRef<HTMLDivElement>(null);
+
+    const navItems = [
+        { id: 'home', label: 'Home', icon: <CirclesFour /> },
+        { id: 'search', label: 'Reserve a Space', icon: <MagnifyingGlass /> },
+        { id: 'calendar', label: 'Calendar', icon: <CalendarBlank /> },
+        { id: 'my-bookings', label: 'My Bookings', icon: <Ticket /> },
+    ];
+
+    // Close notifications on click outside
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+                setShowNotifications(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
+
+    const notifications = [
+        { id: 1, title: 'Booking Approved', message: 'Your booking for Executive Boardroom has been confirmed.', time: '2m ago', unread: true },
+        { id: 2, title: 'Meeting Reminder', message: 'Team sync starts in 15 minutes.', time: '1h ago', unread: false },
+        { id: 3, title: 'System Update', message: 'The platform will be under maintenance tonight.', time: '5h ago', unread: false }
+    ];
+
+    return (
+        <header className="sticky top-0 z-50 bg-white border-b border-slate-200 py-4">
+            <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
+                {/* Logo */}
+                <div
+                    className="flex items-center gap-3 font-bold text-xl text-slate-800 cursor-pointer"
+                    onClick={() => onNavigate('home')}
+                >
+                    <div className="bg-primary text-white p-1.5 rounded-md flex">
+                        <Buildings size={24} weight="regular" />
+                    </div>
+                    <span>RoomBook</span>
+                </div>
+
+                {/* Navigation */}
+                <nav className="hidden md:flex gap-1 bg-slate-50 p-1.5 rounded-xl border border-slate-100">
+                    {navItems.map((item) => (
+                        <button
+                            key={item.id}
+                            onClick={() => onNavigate(item.id)}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${currentView === item.id
+                                    ? 'bg-white text-primary shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                                }`}
+                        >
+                            {/* <span className="hidden lg:inline">{item.icon}</span> */}
+                            {item.label}
+                        </button>
+                    ))}
+                    <button
+                        onClick={() => onNavigate('help')}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${currentView === 'help'
+                                ? 'bg-white text-primary shadow-sm'
+                                : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                            }`}
+                    >
+                        Help
+                    </button>
+                </nav>
+
+                {/* Actions */}
+                <div className="flex items-center gap-4">
+                    {/* Notification Wrapper */}
+                    <div className="relative" ref={notifRef}>
+                        <button
+                            className="relative text-slate-500 hover:text-slate-700 transition-colors p-2"
+                            onClick={() => setShowNotifications(!showNotifications)}
+                        >
+                            <Bell size={24} />
+                            {notifications.some(n => n.unread) && (
+                                <span className="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ring-2 ring-white">
+                                    {notifications.filter(n => n.unread).length}
+                                </span>
+                            )}
+                        </button>
+
+                        {/* Dropdown */}
+                        {showNotifications && (
+                            <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden animate-fade-in z-50">
+                                <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                                    <h3 className="font-bold text-slate-800">Notifications</h3>
+                                    <button className="text-xs text-primary font-medium hover:underline">Mark all read</button>
+                                </div>
+                                <div className="max-h-[300px] overflow-y-auto">
+                                    {notifications.map((notif) => (
+                                        <div key={notif.id} className={`p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer ${notif.unread ? 'bg-blue-50/30' : ''}`}>
+                                            <div className="flex justify-between items-start mb-1">
+                                                <h4 className={`text-sm ${notif.title === 'Booking Approved' ? 'text-primary font-bold' : notif.unread ? 'font-bold text-slate-800' : 'font-medium text-slate-600'}`}>{notif.title}</h4>
+                                                <span className="text-[10px] text-slate-400">{notif.time}</span>
+                                            </div>
+                                            <p className="text-xs text-slate-500 leading-relaxed">{notif.message}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="p-3 text-center border-t border-slate-100 bg-slate-50/30">
+                                    <button className="text-xs font-bold text-slate-600 hover:text-primary transition-colors">View All Activity</button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <button
+                        onClick={() => onNavigate('profile')}
+                        className={`
+                            flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors
+                            ${currentView === 'profile' ? 'bg-primary-dark text-white ring-2 ring-primary ring-offset-2' : 'bg-primary hover:bg-primary-dark text-white'}
+                        `}
+                    >
+                        <User size={20} />
+                        <span>Profile</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+    );
+};
+
+export default Header;
