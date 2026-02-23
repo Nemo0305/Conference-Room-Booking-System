@@ -80,63 +80,74 @@ const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
 
                 {/* Actions */}
                 <div className="flex items-center gap-4">
-                    {/* Notification Wrapper */}
-                    <div className="relative" ref={notifRef}>
+                    {!user ? (
                         <button
-                            className="relative text-slate-500 hover:text-slate-700 transition-colors p-2"
-                            onClick={() => setShowNotifications(!showNotifications)}
+                            onClick={() => onNavigate('login')}
+                            className="bg-primary hover:bg-primary-dark text-white px-5 py-2 rounded-lg font-medium transition-colors shadow-sm"
                         >
-                            <Bell size={24} />
-                            {notifications.some(n => n.unread) && (
-                                <span className="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ring-2 ring-white">
-                                    {notifications.filter(n => n.unread).length}
-                                </span>
-                            )}
+                            Log In
                         </button>
+                    ) : (
+                        <>
+                            {/* Notification Wrapper */}
+                            <div className="relative" ref={notifRef}>
+                                <button
+                                    className="relative text-slate-500 hover:text-slate-700 transition-colors p-2"
+                                    onClick={() => setShowNotifications(!showNotifications)}
+                                >
+                                    <Bell size={24} />
+                                    {notifications.some(n => n.unread) && (
+                                        <span className="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ring-2 ring-white">
+                                            {notifications.filter(n => n.unread).length}
+                                        </span>
+                                    )}
+                                </button>
 
-                        {/* Dropdown */}
-                        {showNotifications && (
-                            <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden animate-fade-in z-50">
-                                <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                                    <h3 className="font-bold text-slate-800">Notifications</h3>
-                                    <button className="text-xs text-primary font-medium hover:underline">Mark all read</button>
-                                </div>
-                                <div className="max-h-[300px] overflow-y-auto">
-                                    {notifications.map((notif) => (
-                                        <div key={notif.id} className={`p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer ${notif.unread ? 'bg-blue-50/30' : ''}`}>
-                                            <div className="flex justify-between items-start mb-1">
-                                                <h4 className={`text-sm ${notif.title === 'Booking Approved' ? 'text-primary font-bold' : notif.unread ? 'font-bold text-slate-800' : 'font-medium text-slate-600'}`}>{notif.title}</h4>
-                                                <span className="text-[10px] text-slate-400">{notif.time}</span>
-                                            </div>
-                                            <p className="text-xs text-slate-500 leading-relaxed">{notif.message}</p>
+                                {/* Dropdown */}
+                                {showNotifications && (
+                                    <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden animate-fade-in z-50">
+                                        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                                            <h3 className="font-bold text-slate-800">Notifications</h3>
+                                            <button className="text-xs text-primary font-medium hover:underline">Mark all read</button>
                                         </div>
-                                    ))}
-                                </div>
-                                <div className="p-3 text-center border-t border-slate-100 bg-slate-50/30">
-                                    <button className="text-xs font-bold text-slate-600 hover:text-primary transition-colors">View All Activity</button>
-                                </div>
+                                        <div className="max-h-[300px] overflow-y-auto">
+                                            {notifications.map((notif) => (
+                                                <div key={notif.id} className={`p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer ${notif.unread ? 'bg-blue-50/30' : ''}`}>
+                                                    <div className="flex justify-between items-start mb-1">
+                                                        <h4 className={`text-sm ${notif.title === 'Booking Approved' ? 'text-primary font-bold' : notif.unread ? 'font-bold text-slate-800' : 'font-medium text-slate-600'}`}>{notif.title}</h4>
+                                                        <span className="text-[10px] text-slate-400">{notif.time}</span>
+                                                    </div>
+                                                    <p className="text-xs text-slate-500 leading-relaxed">{notif.message}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div className="p-3 text-center border-t border-slate-100 bg-slate-50/30">
+                                            <button className="text-xs font-bold text-slate-600 hover:text-primary transition-colors">View All Activity</button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </div>
 
-                    <button
-                        onClick={() => onNavigate('profile')}
-                        className={`
-                            flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors
-                            ${currentView === 'profile' ? 'bg-primary-dark text-white ring-2 ring-primary ring-offset-2' : 'bg-primary hover:bg-primary-dark text-white'}
-                        `}
-                    >
-                        <User size={20} />
-                        <span>{user?.name?.split(' ')[0] || 'Profile'}</span>
-                    </button>
-                    <button
-                        onClick={logout}
-                        title="Sign Out"
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors text-sm font-medium"
-                    >
-                        <SignOut size={18} />
-                        <span className="hidden lg:inline">Sign Out</span>
-                    </button>
+                            <button
+                                onClick={() => onNavigate('profile')}
+                                className={`
+                                    flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors
+                                    ${currentView === 'profile' ? 'bg-primary-dark text-white ring-2 ring-primary ring-offset-2' : 'bg-primary hover:bg-primary-dark text-white'}
+                                `}
+                            >
+                                <User size={20} />
+                                <span>{user.name.split(' ')[0]}</span>
+                            </button>
+                            <button
+                                onClick={logout}
+                                title="Sign Out"
+                                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors text-sm font-medium"
+                            >
+                                <SignOut size={18} />
+                                <span className="hidden lg:inline">Sign Out</span>
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
         </header>

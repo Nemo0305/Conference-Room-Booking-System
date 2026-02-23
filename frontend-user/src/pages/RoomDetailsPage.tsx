@@ -11,6 +11,7 @@ import {
 import React, { useState, useEffect } from 'react';
 import { fetchRoom, createBooking, getCurrentUser, Room } from '../lib/api';
 import { BookingResult } from '../App';
+import LoginPage from './LoginPage';
 
 interface RoomDetailsPageProps {
     room: { catalog_id: string; room_id: string } | null;
@@ -22,6 +23,7 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
     const [room, setRoom] = useState<Room | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [showLoginModal, setShowLoginModal] = useState(false);
 
     // Booking form
     const [bookDate, setBookDate] = useState('');
@@ -46,10 +48,8 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
         load();
     }, [roomRef?.catalog_id, roomRef?.room_id]);
 
-    const handleBook = async (e: React.FormEvent) => {
-        e.preventDefault();
-        const user = getCurrentUser();
-        if (!user || !room) return;
+    const submitBookingAction = async (user: any) => {
+        if (!room) return;
         setSubmitting(true);
         setBookResult(null);
         try {
@@ -81,6 +81,16 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const handleBook = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const user = getCurrentUser();
+        if (!user) {
+            setShowLoginModal(true);
+            return;
+        }
+        submitBookingAction(user);
     };
 
     if (loading) return (
@@ -233,6 +243,18 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
                     </div>
                 </div>
             </div>
+
+            {showLoginModal && (
+                <LoginPage
+                    isModal
+                    onClose={() => setShowLoginModal(false)}
+                    onSuccess={() => {
+                        setShowLoginModal(false);
+                        const user = getCurrentUser();
+                        if (user) submitBookingAction(user);
+                    }}
+                />
+            )}
         </div>
     );
 };

@@ -32,7 +32,7 @@ export interface BookingResult {
 
 function App() {
     const [currentView, setCurrentView] = useState('home');
-    const { user, isLoading } = useAuth();
+    const { isLoading } = useAuth();
     const [selectedRoom, setSelectedRoom] = useState<SelectedRoom | null>(null);
     const [lastBooking, setLastBooking] = useState<BookingResult | null>(null);
 
@@ -60,8 +60,8 @@ function App() {
         );
     }
 
-    // Show login page if not authenticated
-    if (!user) {
+    // Instead of forcing login, we allow the view to determine it.
+    if (currentView === 'login') {
         return <LoginPage onSuccess={() => navigateTo('home')} />;
     }
 

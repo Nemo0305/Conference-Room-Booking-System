@@ -7,7 +7,7 @@ USE conference_system;
 -- ==========================
 -- USERS TABLE
 -- ==========================
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     uid VARCHAR(50) PRIMARY KEY,            -- alphanumeric allowed 
 
     userrole_id VARCHAR(50) NOT NULL,       
@@ -22,7 +22,7 @@ CREATE TABLE users (
 -- CONFERENCE CATALOG TABLE
 -- (Composite Primary Key)
 -- ==========================
-CREATE TABLE conference_catalog (
+CREATE TABLE IF NOT EXISTS conference_catalog (
     catalog_id VARCHAR(50) NOT NULL,        -- alphanumeric
     room_id VARCHAR(50) NOT NULL,           -- alphanumeric
 
@@ -41,7 +41,7 @@ CREATE TABLE conference_catalog (
 -- ==========================
 -- BOOKING TABLE
 -- ==========================
-CREATE TABLE booking (
+CREATE TABLE IF NOT EXISTS booking (
     booking_id VARCHAR(50) PRIMARY KEY,     -- alphanumeric 
 
     catalog_id VARCHAR(50) NOT NULL,
@@ -68,7 +68,7 @@ CREATE TABLE booking (
 -- ==========================
 -- CANCELLATION TABLE
 -- ==========================
-CREATE TABLE cancellation (
+CREATE TABLE IF NOT EXISTS cancellation (
     cancel_id VARCHAR(50) PRIMARY KEY,      -- alphanumeric cancel ID
 
     booking_id VARCHAR(50) UNIQUE NOT NULL, -- 1:1 cancellation

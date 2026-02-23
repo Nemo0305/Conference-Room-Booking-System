@@ -8,6 +8,7 @@ import {
 } from '@phosphor-icons/react';
 import React, { useState, useRef, useEffect } from 'react';
 import { fetchUserBookings, getCurrentUser, Booking, fetchRooms, createBooking, Room } from '../lib/api';
+import LoginPage from './LoginPage';
 
 
 interface CalendarPageProps {
@@ -43,6 +44,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
     const [activeDateOptions, setActiveDateOptions] = useState<string | null>(null);
     const [detailDate, setDetailDate] = useState<string | null>(null);
     const [isDetailOpen, setIsDetailOpen] = useState(false);
+    const [showLoginModal, setShowLoginModal] = useState(false);
 
     // Real booking data from API
     const [bookingEvents, setBookingEvents] = useState<BookingEvent[]>([]);
@@ -940,7 +942,14 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
                             </button>
                             <button
                                 className="px-8 py-2.5 bg-primary hover:bg-primary-dark text-white rounded-lg font-bold shadow-lg shadow-teal-200/50 transition-all active:scale-[0.98] disabled:opacity-50"
-                                onClick={handleConfirmBooking}
+                                onClick={() => {
+                                    const user = getCurrentUser();
+                                    if (!user) {
+                                        setShowLoginModal(true);
+                                    } else {
+                                        handleConfirmBooking();
+                                    }
+                                }}
                                 disabled={isSubmitting}
                             >
                                 {isSubmitting ? 'Confirming...' : 'Confirm Booking'}
@@ -948,6 +957,17 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {showLoginModal && (
+                <LoginPage
+                    isModal
+                    onClose={() => setShowLoginModal(false)}
+                    onSuccess={() => {
+                        setShowLoginModal(false);
+                        setIsModalOpen(false); // complete booking automatically
+                    }}
+                />
             )}
         </div>
     );
