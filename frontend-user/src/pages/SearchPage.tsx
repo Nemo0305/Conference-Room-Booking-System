@@ -7,10 +7,12 @@ import {
 } from '@phosphor-icons/react';
 import React, { useState, useEffect } from 'react';
 import { fetchRooms, createBooking, getCurrentUser } from '../lib/api';
+import { BookingResult } from '../App';
 
-// Update Room interface to match the database and UI needs
+
 export interface Room {
-    id: string; // Use catalog_id or room_id
+    id: string; // room_id
+    catalog_id: string; // catalog_id from DB
     name: string;
     location: string;
     description: string;
@@ -25,6 +27,8 @@ export interface Room {
 }
 
 interface SearchPageProps {
+    onViewRoom?: (catalog_id: string, room_id: string) => void;
+    onBookingSuccess?: (booking: BookingResult) => void;
 }
 
 interface Office {
@@ -33,7 +37,7 @@ interface Office {
     image: string;
 }
 
-const SearchPage: React.FC<SearchPageProps> = () => {
+const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBookingSuccess }) => {
     const [selectedRoomType, setSelectedRoomType] = useState<Room | null>(null);
     const [rooms, setRooms] = useState<Room[]>([]);
     const [loading, setLoading] = useState(true);
@@ -61,6 +65,7 @@ const SearchPage: React.FC<SearchPageProps> = () => {
                 const apiRooms = await fetchRooms();
                 const mappedRooms: Room[] = apiRooms.map(r => ({
                     id: r.room_id,
+                    catalog_id: r.catalog_id,
                     name: r.room_name,
                     location: r.location,
                     description: `Located on Floor ${r.floor_no}, Room ${r.room_number}. ${r.availability || 'Available for booking.'}`,
@@ -370,7 +375,7 @@ const SearchPage: React.FC<SearchPageProps> = () => {
                                 try {
                                     const result = await createBooking({
                                         uid: user.uid,
-                                        catalog_id: selectedRoomType.id.startsWith('R-') ? 'CAT-01' : 'CAT-01',
+                                        catalog_id: selectedRoomType.catalog_id,
                                         room_id: selectedRoomType.id,
                                         start_date: bookDate,
                                         end_date: bookDate,
@@ -380,6 +385,20 @@ const SearchPage: React.FC<SearchPageProps> = () => {
                                     });
                                     setBookingResult({ ok: true, msg: `✅ Booking confirmed! ID: ${result.booking_id}` });
                                     setBookDate(''); setBookStartTime(''); setBookEndTime(''); setBookPurpose('');
+                                    // Navigate to ticket view after a short delay
+                                    if (onBookingSuccess && selectedRoomType) {
+                                        setTimeout(() => {
+                                            onBookingSuccess({
+                                                booking_id: result.booking_id,
+                                                room_name: selectedRoomType.name,
+                                                location: selectedRoomType.location,
+                                                date: bookDate,
+                                                start_time: bookStartTime,
+                                                end_time: bookEndTime,
+                                                purpose: bookPurpose,
+                                            });
+                                        }, 800);
+                                    }
                                 } catch (err: any) {
                                     setBookingResult({ ok: false, msg: err.message });
                                 } finally {

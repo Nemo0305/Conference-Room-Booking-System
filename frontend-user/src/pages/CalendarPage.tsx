@@ -7,6 +7,8 @@ import {
     CaretDown
 } from '@phosphor-icons/react';
 import React, { useState, useRef, useEffect } from 'react';
+import { fetchUserBookings, getCurrentUser, Booking } from '../lib/api';
+
 
 interface CalendarPageProps {
     onPreviewTicket: () => void;
@@ -42,45 +44,29 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
     const [detailDate, setDetailDate] = useState<string | null>(null);
     const [isDetailOpen, setIsDetailOpen] = useState(false);
 
-    // Mock booking data
-    const bookingEvents: BookingEvent[] = [
-        {
-            id: 'BK001',
-            date: '2026-02-12',
-            room: 'Executive Boardroom',
-            location: 'Downtown Office',
-            timeSlot: '09:00 AM - 11:00 AM',
-            bookedBy: 'John Doe',
-            duration: '2 hours',
-            purpose: 'Client Presentation',
-            status: 'booked',
-            capacity: 12
-        },
-        {
-            id: 'BK002',
-            date: '2026-02-13',
-            room: 'Conference Room A',
-            location: 'Tech Park Campus',
-            timeSlot: '10:00 AM - 11:30 AM',
-            bookedBy: 'Jane Smith',
-            duration: '1.5 hours',
-            purpose: 'Team Meeting',
-            status: 'pending',
-            capacity: 10
-        },
-        {
-            id: 'BK003',
-            date: '2026-02-15',
-            room: 'Tech Park Meeting Room',
-            location: 'Tech Park Campus',
-            timeSlot: '01:00 PM - 05:00 PM',
-            bookedBy: 'Admin',
-            duration: 'All Day',
-            purpose: 'Waiting for Approval',
-            status: 'pending',
-            capacity: 8
-        }
-    ];
+    // Real booking data from API
+    const [bookingEvents, setBookingEvents] = useState<BookingEvent[]>([]);
+
+    useEffect(() => {
+        const user = getCurrentUser();
+        if (!user) return;
+        fetchUserBookings(user.uid).then((bookings: Booking[]) => {
+            const mapped: BookingEvent[] = bookings.map(b => ({
+                id: b.booking_id,
+                date: b.start_date?.slice(0, 10) || '',
+                room: b.room_name || b.room_id,
+                location: b.location || '',
+                timeSlot: `${b.start_time} - ${b.end_time}`,
+                bookedBy: b.user_name || user.name,
+                duration: '',
+                purpose: b.purpose || '',
+                status: (b.status === 'confirmed' ? 'booked' : b.status === 'pending' ? 'pending' : 'available') as BookingEvent['status'],
+                capacity: 0,
+            }));
+            setBookingEvents(mapped);
+        }).catch(() => { });
+    }, []);
+
 
     // Modal Form State
     const [formData, setFormData] = useState({
@@ -416,8 +402,8 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
                                             key={view}
                                             onClick={() => { setViewType(view); setIsViewOpen(false); }}
                                             className={`w-full text-left px-4 py-2.5 capitalize transition-colors ${viewType === view
-                                                    ? 'bg-primary-light text-primary font-semibold'
-                                                    : 'hover:bg-slate-50'
+                                                ? 'bg-primary-light text-primary font-semibold'
+                                                : 'hover:bg-slate-50'
                                                 }`}
                                         >
                                             {view} View
@@ -627,10 +613,10 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
                                                 <div
                                                     key={`${dateStr}-${i}`}
                                                     className={`flex-1 p-3 border-r border-slate-200 last:border-r-0 min-h-16 cursor-pointer transition-colors ${hasBooking
-                                                            ? status === 'booked'
-                                                                ? 'bg-green-100/50 hover:bg-green-100'
-                                                                : 'bg-yellow-100/50 hover:bg-yellow-100'
-                                                            : 'bg-blue-100/30 hover:bg-blue-100/60'
+                                                        ? status === 'booked'
+                                                            ? 'bg-green-100/50 hover:bg-green-100'
+                                                            : 'bg-yellow-100/50 hover:bg-yellow-100'
+                                                        : 'bg-blue-100/30 hover:bg-blue-100/60'
                                                         }`}
                                                     onMouseEnter={() => {
                                                         if (hasBooking) setHoveredBooking(dayBookings[0]);
@@ -712,8 +698,8 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
                                                     <div
                                                         key={booking.id}
                                                         className={`p-3 rounded-lg border-l-4 ${booking.status === 'booked'
-                                                                ? 'bg-green-50 border-green-500'
-                                                                : 'bg-yellow-50 border-yellow-500'
+                                                            ? 'bg-green-50 border-green-500'
+                                                            : 'bg-yellow-50 border-yellow-500'
                                                             }`}
                                                         onMouseEnter={() => setHoveredBooking(booking)}
                                                         onMouseLeave={() => setHoveredBooking(null)}

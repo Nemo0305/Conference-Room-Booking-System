@@ -15,13 +15,40 @@ import ProfilePage from './pages/ProfilePage'
 import LoginPage from './pages/LoginPage'
 import { useAuth } from './context/AuthContext'
 
+export interface SelectedRoom {
+    catalog_id: string;
+    room_id: string;
+}
+
+export interface BookingResult {
+    booking_id: string;
+    room_name: string;
+    location: string;
+    date: string;
+    start_time: string;
+    end_time: string;
+    purpose: string;
+}
+
 function App() {
     const [currentView, setCurrentView] = useState('home');
     const { user, isLoading } = useAuth();
+    const [selectedRoom, setSelectedRoom] = useState<SelectedRoom | null>(null);
+    const [lastBooking, setLastBooking] = useState<BookingResult | null>(null);
 
     const navigateTo = (view: string) => {
         setCurrentView(view);
         window.scrollTo(0, 0);
+    };
+
+    const navigateToRoom = (catalog_id: string, room_id: string) => {
+        setSelectedRoom({ catalog_id, room_id });
+        navigateTo('details');
+    };
+
+    const navigateToTicket = (booking: BookingResult) => {
+        setLastBooking(booking);
+        navigateTo('ticket');
     };
 
     // Show loading spinner while auth state is being restored
@@ -56,16 +83,17 @@ function App() {
                     </>
                 );
             case 'search':
-                return <SearchPage />;
+                return <SearchPage onViewRoom={navigateToRoom} onBookingSuccess={navigateToTicket} />;
             case 'details':
                 return (
                     <RoomDetailsPage
+                        room={selectedRoom}
                         onBack={() => navigateTo('search')}
-                        onBook={() => navigateTo('ticket')}
+                        onBookingSuccess={navigateToTicket}
                     />
                 );
             case 'ticket':
-                return <TicketPage />;
+                return <TicketPage booking={lastBooking} onHome={() => navigateTo('home')} onViewBookings={() => navigateTo('my-bookings')} />;
             case 'calendar':
                 return <CalendarPage onPreviewTicket={() => navigateTo('ticket')} />;
             case 'my-bookings':
