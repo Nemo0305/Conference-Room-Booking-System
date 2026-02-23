@@ -9,8 +9,22 @@ async function fix() {
         const hashed = await bcrypt.hash(pass, 10);
 
         console.log('START_FIX');
-        const [res] = await db.query('UPDATE users SET userrole_id = ?, password = ? WHERE email = ?', [role, hashed, email]);
+        const uid = 'U-999';
+        const name = 'Demo Admin';
+        const dept = 'IT';
+        const phone = '0000000000';
+
+        const [res] = await db.query(
+            'INSERT IGNORE INTO users (uid, userrole_id, name, email, password, dept, phone_no) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [uid, role, name, email, hashed, dept, phone]
+        );
         console.log('AFFECTED:' + res.affectedRows);
+
+        // If it already existed, update it
+        if (res.affectedRows === 0) {
+            await db.query('UPDATE users SET userrole_id = ?, password = ? WHERE email = ?', [role, hashed, email]);
+            console.log('UPDATED existing user');
+        }
 
         const [rows] = await db.query('SELECT uid, email, userrole_id FROM users WHERE email = ?', [email]);
         console.log('RESULT:' + JSON.stringify(rows));

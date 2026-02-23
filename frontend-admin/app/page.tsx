@@ -20,10 +20,23 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
 
-    // Simulate login delay
-    setTimeout(() => {
+    try {
+      const data = await loginAdmin(formData.email, formData.password);
+
+      // Check admin role
+      if (data.user?.userrole_id !== 'admin' && data.user?.userrole_id !== 'ADMIN') {
+        setError('Access denied. Admin privileges required.');
+        setLoading(false);
+        return;
+      }
+
+      localStorage.setItem('admin_token', data.token);
+      localStorage.setItem('admin_user', JSON.stringify(data.user));
       router.push('/admin');
+    } catch (err: any) {
+      setError(err.message || 'Login failed. Please check your credentials.');
       setLoading(false);
     }
   };

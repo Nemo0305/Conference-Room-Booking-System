@@ -12,6 +12,7 @@ USE conference_system;
 -- ─────────────────────────────────────────
 INSERT IGNORE INTO users (uid, userrole_id, name, email, password, dept, phone_no) VALUES
 ('U-01', 'admin', 'Admin User',      'admin@company.com',  '$2b$10$PhvHFLxgJ4FwAeWxTjZPvO7r3HBpV7eXTNyqi89VcnfrWOxK0JMcW', 'IT',          '9000000001'),
+('U-999', 'admin', 'Demo Admin',     'AKD1@iem.edu.in',    '$2b$10$PhvHFLxgJ4FwAeWxTjZPvO7r3HBpV7eXTNyqi89VcnfrWOxK0JMcW', 'IT',          '0000000000'),
 ('U-02', 'user',  'Alice Johnson',   'alice@company.com',  '$2b$10$PhvHFLxgJ4FwAeWxTjZPvO7r3HBpV7eXTNyqi89VcnfrWOxK0JMcW', 'Engineering', '9000000002'),
 ('U-03', 'user',  'Bob Smith',       'bob@company.com',    '$2b$10$PhvHFLxgJ4FwAeWxTjZPvO7r3HBpV7eXTNyqi89VcnfrWOxK0JMcW', 'Marketing',   '9000000003'),
 ('U-04', 'user',  'Carol Williams',  'carol@company.com',  '$2b$10$PhvHFLxgJ4FwAeWxTjZPvO7r3HBpV7eXTNyqi89VcnfrWOxK0JMcW', 'HR',          '9000000004'),

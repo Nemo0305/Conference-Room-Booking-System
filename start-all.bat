@@ -1,0 +1,13 @@
+@echo off
+echo Starting Conference Room Booking System...
+
+echo Starting Backend API...
+start "Backend API" cmd /c "cd backend && npm install && npm start"
+
+echo Starting User Frontend...
+start "User Frontend" cmd /c "cd frontend-user && npm install && npm run dev"
+
+echo Starting Admin Frontend...
+start "Admin Frontend" cmd /c "cd frontend-admin && npm install && npm run dev"
+
+echo All services are starting up!
