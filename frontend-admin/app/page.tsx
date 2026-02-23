@@ -5,25 +5,39 @@ import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Building2, Eye, EyeOff } from 'lucide-react';
+import { loginAdmin } from '@/lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [formData, setFormData] = useState({
-    email: 'admin@company.com',
+    email: '',
     password: '',
   });
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
 
-    // Simulate login delay
-    setTimeout(() => {
+    try {
+      const data = await loginAdmin(formData.email, formData.password);
+      // Check admin role
+      if (data.user.userrole_id !== 'admin' && data.user.userrole_id !== 'ADMIN') {
+        setError('Access denied. Admin privileges required.');
+        localStorage.removeItem('admin_token');
+        localStorage.removeItem('admin_user');
+        setLoading(false);
+        return;
+      }
       router.push('/admin');
+    } catch (err: any) {
+      setError(err.message || 'Login failed');
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   return (
@@ -41,6 +55,12 @@ export default function LoginPage() {
             </div>
           </div>
 
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
+              {error}
+            </div>
+          )}
+
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-sm font-semibold text-foreground mb-2">
@@ -51,7 +71,8 @@ export default function LoginPage() {
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="admin@company.com"
+                placeholder="admin@iem.edu.in"
+                required
               />
             </div>
 
@@ -66,6 +87,7 @@ export default function LoginPage() {
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   placeholder="Enter your password"
+                  required
                 />
                 <button
                   type="button"
@@ -75,16 +97,6 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                <input type="checkbox" className="rounded" />
-                Remember me
-              </label>
-              <a href="#" className="text-sm text-primary hover:underline">
-                Forgot password?
-              </a>
             </div>
 
             <Button
@@ -100,16 +112,13 @@ export default function LoginPage() {
           <div className="mt-6 p-4 bg-muted rounded-lg border border-border">
             <p className="text-xs font-semibold text-muted-foreground mb-2">Demo Credentials</p>
             <p className="text-xs text-muted-foreground">
-              Email: <span className="text-foreground font-mono">admin@company.com</span>
+              Email: <span className="text-foreground font-mono">AKD1@iem.edu.in</span>
             </p>
             <p className="text-xs text-muted-foreground">
-              Password: <span className="text-foreground font-mono">demo123</span>
+              Password: <span className="text-foreground font-mono">password123</span>
             </p>
+            <p className="text-xs text-orange-500 mt-1">* Must have admin role to access</p>
           </div>
-
-          <p className="text-xs text-muted-foreground text-center mt-6">
-            Contact support at support@company.com for access issues
-          </p>
         </div>
       </Card>
     </div>

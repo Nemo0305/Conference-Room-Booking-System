@@ -7,7 +7,7 @@ import {
     CaretDown
 } from '@phosphor-icons/react';
 import React, { useState, useRef, useEffect } from 'react';
-import { fetchUserBookings, getCurrentUser, Booking } from '../lib/api';
+import { fetchUserBookings, getCurrentUser, Booking, fetchRooms, createBooking, Room } from '../lib/api';
 
 
 interface CalendarPageProps {
@@ -46,12 +46,21 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
 
     // Real booking data from API
     const [bookingEvents, setBookingEvents] = useState<BookingEvent[]>([]);
+    const [availableRooms, setAvailableRooms] = useState<Room[]>([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    useEffect(() => {
+    const loadData = async () => {
         const user = getCurrentUser();
         if (!user) return;
-        fetchUserBookings(user.uid).then((bookings: Booking[]) => {
-            const mapped: BookingEvent[] = bookings.map(b => ({
+        try {
+            const [bookings, rooms] = await Promise.all([
+                fetchUserBookings(user.uid),
+                fetchRooms()
+            ]);
+
+            setAvailableRooms(rooms);
+
+            const mapped: BookingEvent[] = bookings.map((b: Booking) => ({
                 id: b.booking_id,
                 date: b.start_date?.slice(0, 10) || '',
                 room: b.room_name || b.room_id,
@@ -64,8 +73,62 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
                 capacity: 0,
             }));
             setBookingEvents(mapped);
-        }).catch(() => { });
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    useEffect(() => {
+        loadData();
     }, []);
+
+    const handleConfirmBooking = async () => {
+        const user = getCurrentUser();
+        if (!user || !formData.room || formData.timeSlots.length === 0 || selectedDates.length === 0) {
+            alert('Please select a room, date, and time slot.');
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            // Find selected room object
+            const roomObj = availableRooms.find(r => `${r.catalog_id}:${r.room_id}` === formData.room);
+            if (!roomObj) throw new Error('Selected room not found');
+
+            // We take the first selected date and slots for simplicity in this modal
+            const date = selectedDates[0];
+            const slot = formData.timeSlots[0];
+            const [start, end] = slot.split('-').map(s => s.trim());
+
+            // Convert "09:00 AM" to "09:00"
+            const formatTime = (t: string) => {
+                const [time, meridiem] = t.split(' ');
+                let [h, m] = time.split(':');
+                if (meridiem === 'PM' && h !== '12') h = (parseInt(h) + 12).toString();
+                if (meridiem === 'AM' && h === '12') h = '00';
+                return `${h.padStart(2, '0')}:${m || '00'}:00`;
+            };
+
+            await createBooking({
+                uid: user.uid,
+                catalog_id: roomObj.catalog_id,
+                room_id: roomObj.room_id,
+                start_date: date,
+                end_date: date,
+                start_time: formatTime(start),
+                end_time: formatTime(end),
+                purpose: formData.purpose
+            });
+
+            alert('Booking request submitted successfully!');
+            setIsModalOpen(false);
+            loadData(); // Refresh calendar
+        } catch (e: any) {
+            alert(e.message);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
 
     // Modal Form State
@@ -787,8 +850,11 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
                                     onChange={(e) => setFormData({ ...formData, room: e.target.value })}
                                 >
                                     <option value="" disabled>Choose a room</option>
-                                    <option value="executive">Executive Boardroom (12 people)</option>
-                                    <option value="innovation">Innovation Lab (20 people)</option>
+                                    {availableRooms.map(r => (
+                                        <option key={`${r.catalog_id}:${r.room_id}`} value={`${r.catalog_id}:${r.room_id}`}>
+                                            {r.room_name} ({r.capacity} people)
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
 
@@ -873,10 +939,11 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
                                 Cancel
                             </button>
                             <button
-                                className="px-8 py-2.5 bg-primary hover:bg-primary-dark text-white rounded-lg font-bold shadow-lg shadow-teal-200/50 transition-all active:scale-[0.98]"
-                                onClick={() => setIsModalOpen(false)} // Just close for demo
+                                className="px-8 py-2.5 bg-primary hover:bg-primary-dark text-white rounded-lg font-bold shadow-lg shadow-teal-200/50 transition-all active:scale-[0.98] disabled:opacity-50"
+                                onClick={handleConfirmBooking}
+                                disabled={isSubmitting}
                             >
-                                Confirm Booking
+                                {isSubmitting ? 'Confirming...' : 'Confirm Booking'}
                             </button>
                         </div>
                     </div>

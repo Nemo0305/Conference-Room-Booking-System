@@ -1,47 +1,49 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, XCircle, Eye } from 'lucide-react';
-
-const pendingApprovals = [
-  {
-    id: 1,
-    type: 'booking',
-    user: 'Michael Chen',
-    room: 'Conference 1',
-    date: 'Mar 20, 2024',
-    time: '3:00 PM - 4:00 PM',
-    attendees: 12,
-    requestedAt: '2 hours ago',
-    reason: 'New booking request',
-  },
-  {
-    id: 2,
-    type: 'booking',
-    user: 'Lisa Anderson',
-    room: 'Conference 2',
-    date: 'Mar 22, 2024',
-    time: '11:00 AM - 1:00 PM',
-    attendees: 15,
-    requestedAt: '30 minutes ago',
-    reason: 'Over capacity approval needed',
-  },
-  {
-    id: 3,
-    type: 'booking',
-    user: 'David Martinez',
-    room: 'Boardroom A',
-    date: 'Mar 23, 2024',
-    time: '10:00 AM - 11:30 AM',
-    attendees: 10,
-    requestedAt: '15 minutes ago',
-    reason: 'Recurring booking request',
-  },
-];
+import { CheckCircle2, XCircle } from 'lucide-react';
+import { fetchAllBookings, updateBookingStatus, Booking } from '@/lib/api';
 
 export default function ApprovalsPage() {
+  const [pendingBookings, setPendingBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  const loadPending = async () => {
+    try {
+      const all = await fetchAllBookings();
+      setPendingBookings(all.filter(b => b.status === 'pending'));
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadPending(); }, []);
+
+  const handleAction = async (booking_id: string, status: 'confirmed' | 'rejected') => {
+    setActionLoading(booking_id);
+    try {
+      await updateBookingStatus(booking_id, status);
+      setPendingBookings(prev => prev.filter(b => b.booking_id !== booking_id));
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  if (loading) return (
+    <div className="p-6 flex items-center justify-center min-h-[300px]">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+    </div>
+  );
+
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -49,30 +51,34 @@ export default function ApprovalsPage() {
         <p className="text-muted-foreground mt-1">Review and approve pending booking requests</p>
       </div>
 
+      {error && (
+        <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">{error}</div>
+      )}
+
       {/* Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Pending Approvals</p>
-          <p className="text-2xl font-bold text-foreground mt-1">{pendingApprovals.length}</p>
+          <p className="text-2xl font-bold text-foreground mt-1">{pendingBookings.length}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Approved This Month</p>
-          <p className="text-2xl font-bold text-green-600 mt-1">38</p>
+          <p className="text-sm text-muted-foreground">Action Required</p>
+          <p className="text-2xl font-bold text-yellow-600 mt-1">{pendingBookings.length > 0 ? 'Yes' : 'None'}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Rejected This Month</p>
-          <p className="text-2xl font-bold text-red-600 mt-1">3</p>
+          <p className="text-sm text-muted-foreground">Status</p>
+          <p className="text-2xl font-bold text-green-600 mt-1">{pendingBookings.length === 0 ? 'All Clear' : 'Needs Review'}</p>
         </Card>
       </div>
 
       {/* Pending Approvals List */}
       <div className="space-y-4">
-        {pendingApprovals.map((approval) => (
-          <Card key={approval.id} className="p-6">
+        {pendingBookings.map((booking) => (
+          <Card key={booking.booking_id} className="p-6">
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
-                  <h3 className="text-lg font-semibold text-foreground">{approval.user}</h3>
+                  <h3 className="text-lg font-semibold text-foreground">{booking.user_name || booking.uid}</h3>
                   <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
                     Booking Request
                   </Badge>
@@ -81,63 +87,62 @@ export default function ApprovalsPage() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                   <div>
                     <p className="text-xs text-muted-foreground uppercase font-semibold">Room</p>
-                    <p className="text-sm font-medium text-foreground mt-1">{approval.room}</p>
+                    <p className="text-sm font-medium text-foreground mt-1">{booking.room_name || booking.room_id}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground uppercase font-semibold">Date & Time</p>
                     <p className="text-sm font-medium text-foreground mt-1">
-                      {approval.date}
+                      {booking.start_date?.slice(0, 10)}
                       <br />
-                      <span className="text-xs text-muted-foreground">{approval.time}</span>
+                      <span className="text-xs text-muted-foreground">{booking.start_time} – {booking.end_time}</span>
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground uppercase font-semibold">Attendees</p>
-                    <p className="text-sm font-medium text-foreground mt-1">{approval.attendees}</p>
+                    <p className="text-xs text-muted-foreground uppercase font-semibold">Location</p>
+                    <p className="text-sm font-medium text-foreground mt-1">{booking.location || '—'}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground uppercase font-semibold">Requested</p>
-                    <p className="text-sm font-medium text-foreground mt-1">{approval.requestedAt}</p>
+                    <p className="text-xs text-muted-foreground uppercase font-semibold">Booking ID</p>
+                    <p className="text-sm font-medium text-foreground mt-1 font-mono">{booking.booking_id}</p>
                   </div>
                 </div>
 
-                <div className="mt-4 p-3 bg-muted rounded-lg">
-                  <p className="text-sm text-foreground">
-                    <strong>Note:</strong> {approval.reason}
-                  </p>
-                </div>
+                {booking.purpose && (
+                  <div className="mt-4 p-3 bg-muted rounded-lg">
+                    <p className="text-sm text-foreground">
+                      <strong>Purpose:</strong> {booking.purpose}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="flex items-center gap-2 pt-4 border-t border-border">
               <Button
                 className="bg-green-600 hover:bg-green-700 text-white gap-2 flex-1"
+                disabled={actionLoading === booking.booking_id}
+                onClick={() => handleAction(booking.booking_id, 'confirmed')}
               >
                 <CheckCircle2 className="w-4 h-4" />
-                Approve
+                {actionLoading === booking.booking_id ? 'Processing...' : 'Approve'}
               </Button>
               <Button
                 variant="outline"
                 className="flex-1 gap-2"
+                disabled={actionLoading === booking.booking_id}
+                onClick={() => handleAction(booking.booking_id, 'rejected')}
               >
                 <XCircle className="w-4 h-4" />
                 Reject
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-10 w-10 p-0"
-              >
-                <Eye className="w-4 h-4" />
               </Button>
             </div>
           </Card>
         ))}
       </div>
 
-      {pendingApprovals.length === 0 && (
+      {pendingBookings.length === 0 && (
         <Card className="p-12 text-center">
-          <p className="text-muted-foreground">No pending approvals</p>
+          <p className="text-muted-foreground">No pending approvals — all caught up! 🎉</p>
         </Card>
       )}
     </div>

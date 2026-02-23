@@ -6,11 +6,11 @@ import {
     CaretDown
 } from '@phosphor-icons/react';
 import React, { useState, useEffect } from 'react';
-import { fetchRooms, createBooking, getCurrentUser } from '../lib/api';
+import { fetchRooms, createBooking, getCurrentUser, Room as ApiRoom } from '../lib/api';
 import { BookingResult } from '../App';
 
 
-export interface Room {
+export interface SearchRoom {
     id: string; // room_id
     catalog_id: string; // catalog_id from DB
     name: string;
@@ -38,10 +38,11 @@ interface Office {
 }
 
 const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBookingSuccess }) => {
-    const [selectedRoomType, setSelectedRoomType] = useState<Room | null>(null);
-    const [rooms, setRooms] = useState<Room[]>([]);
+    const [selectedRoomType, setSelectedRoomType] = useState<SearchRoom | null>(null);
+    const [rooms, setRooms] = useState<SearchRoom[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
     // Booking form state
     const [bookDate, setBookDate] = useState('');
     const [bookStartTime, setBookStartTime] = useState('');
@@ -49,13 +50,14 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
     const [bookPurpose, setBookPurpose] = useState('');
     const [bookingSubmitting, setBookingSubmitting] = useState(false);
     const [bookingResult, setBookingResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
     // Filter & search state
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedRoomTypes, setSelectedRoomTypes] = useState<string[]>([]);
     const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
     const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
     const [selectedCapacity, setSelectedCapacity] = useState<string[]>([]);
-    const [filteredRooms, setFilteredRooms] = useState<Room[]>([]);
+    const [filteredRooms, setFilteredRooms] = useState<SearchRoom[]>([]);
     const [hasFiltered, setHasFiltered] = useState(false);
     const [selectedOffice, setSelectedOffice] = useState<string | null>(null);
 
@@ -63,7 +65,7 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
         const loadRooms = async () => {
             try {
                 const apiRooms = await fetchRooms();
-                const mappedRooms: Room[] = apiRooms.map(r => ({
+                const mappedRooms: SearchRoom[] = apiRooms.map((r: ApiRoom) => ({
                     id: r.room_id,
                     catalog_id: r.catalog_id,
                     name: r.room_name,
@@ -185,7 +187,7 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
         return Object.values(offices);
     };
 
-    const getRoomTypesForOffice = (office: string): Room[] => {
+    const getRoomTypesForOffice = (office: string): SearchRoom[] => {
         return displayRooms.filter(room => room.location === office);
     };
 
@@ -255,7 +257,6 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
                                 </div>
                                 <button
                                     onClick={() => {
-                                        console.log('Button clicked with room:', room);
                                         setSelectedRoomType(room);
                                     }}
                                     type="button"

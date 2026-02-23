@@ -1,3 +1,5 @@
+'use client';
+
 import { DashboardAnalytics } from '@/components/admin/dashboard/analytics';
 import { RealTimeAvailability } from '@/components/admin/dashboard/availability';
 import { RecentBookings } from '@/components/admin/dashboard/recent-bookings';
@@ -12,7 +14,7 @@ export default function AdminDashboard() {
       </div>
 
       <DashboardAnalytics />
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <RecentBookings />

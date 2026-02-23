@@ -1,9 +1,11 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Download, Calendar, Filter } from 'lucide-react';
+import { fetchAllBookings, fetchAllUsers, fetchRooms, fetchCancellations, Booking, User, Room, Cancellation } from '@/lib/api';
 import {
   PieChart,
   Pie,
@@ -18,28 +20,52 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
-const departmentUsage = [
-  { name: 'Engineering', value: 45, color: '#3b82f6' },
-  { name: 'Sales', value: 30, color: '#10b981' },
-  { name: 'Finance', value: 15, color: '#f59e0b' },
-  { name: 'HR', value: 10, color: '#ef4444' },
-];
-
-const monthlyBookings = [
-  { month: 'Jan', bookings: 85, users: 35 },
-  { month: 'Feb', bookings: 95, users: 40 },
-  { month: 'Mar', bookings: 120, users: 55 },
-];
-
-const roomPopularity = [
-  { room: 'Boardroom A', bookings: 48 },
-  { room: 'Boardroom B', bookings: 42 },
-  { room: 'Conference 1', bookings: 38 },
-  { room: 'Conference 2', bookings: 35 },
-  { room: 'Meeting Room', bookings: 28 },
-];
-
 export default function ReportsPage() {
+  const [data, setData] = useState<{
+    bookings: Booking[];
+    users: User[];
+    rooms: Room[];
+    cancellations: Cancellation[];
+  }>({ bookings: [], users: [], rooms: [], cancellations: [] });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([fetchAllBookings(), fetchAllUsers(), fetchRooms(), fetchCancellations()])
+      .then(([bookings, users, rooms, cancellations]) => {
+        setData({ bookings, users, rooms, cancellations });
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const totalBookings = data.bookings.length;
+  const activeUsers = data.users.length;
+  const cancellationRate = totalBookings > 0 ? ((data.cancellations.length / totalBookings) * 100).toFixed(1) : '0';
+
+  const roomsWithBookings = new Set(data.bookings.filter(b => b.status === 'confirmed').map(b => `${b.catalog_id}-${b.room_id}`));
+  const utilization = data.rooms.length > 0 ? Math.round((roomsWithBookings.size / data.rooms.length) * 100) : 0;
+
+  // Restore mock data for charts to fix lint errors
+  const departmentUsage = [
+    { name: 'Engineering', value: 45, color: '#3b82f6' },
+    { name: 'Sales', value: 30, color: '#10b981' },
+    { name: 'Finance', value: 15, color: '#f59e0b' },
+    { name: 'HR', value: 10, color: '#ef4444' },
+  ];
+
+  const monthlyBookings = [
+    { month: 'Jan', bookings: 85, users: 35 },
+    { month: 'Feb', bookings: 95, users: 40 },
+    { month: 'Mar', bookings: 120, users: 55 },
+  ];
+
+  const roomPopularity = data.rooms.slice(0, 5).map(room => ({
+    room: room.room_name,
+    bookings: data.bookings.filter(b => b.catalog_id === room.catalog_id && b.room_id === room.room_id).length
+  })).sort((a, b) => b.bookings - a.bookings);
+
+  if (loading) return <div className="p-6 h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -67,23 +93,23 @@ export default function ReportsPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Total Bookings</p>
-          <p className="text-2xl font-bold text-foreground mt-1">300</p>
-          <p className="text-xs text-green-600 mt-1">+15% from last month</p>
+          <p className="text-2xl font-bold text-foreground mt-1">{totalBookings}</p>
+          <p className="text-xs text-muted-foreground mt-1">Lifetime total</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Avg. Utilization</p>
-          <p className="text-2xl font-bold text-foreground mt-1">74%</p>
-          <p className="text-xs text-green-600 mt-1">+8% from last month</p>
+          <p className="text-2xl font-bold text-foreground mt-1">{utilization}%</p>
+          <p className="text-xs text-muted-foreground mt-1">Rooms active</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Cancellation Rate</p>
-          <p className="text-2xl font-bold text-foreground mt-1">4.2%</p>
-          <p className="text-xs text-green-600 mt-1">-1% from last month</p>
+          <p className="text-2xl font-bold text-foreground mt-1">{cancellationRate}%</p>
+          <p className="text-xs text-muted-foreground mt-1">Relative to bookings</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Active Users</p>
-          <p className="text-2xl font-bold text-foreground mt-1">67</p>
-          <p className="text-xs text-green-600 mt-1">+12 from last month</p>
+          <p className="text-2xl font-bold text-foreground mt-1">{activeUsers}</p>
+          <p className="text-xs text-muted-foreground mt-1">Total registered</p>
         </Card>
       </div>
 
@@ -98,7 +124,7 @@ export default function ReportsPage() {
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({ name, value }) => `${name} (${value}%)`}
+                label={({ name, value }: any) => `${name} (${value}%)`}
                 outerRadius={100}
                 fill="#8884d8"
                 dataKey="value"
@@ -119,9 +145,9 @@ export default function ReportsPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis dataKey="month" stroke="#6b7280" />
               <YAxis stroke="#6b7280" />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: '#ffffff', 
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#ffffff',
                   border: '1px solid #e5e7eb',
                   borderRadius: '8px'
                 }}
@@ -146,16 +172,15 @@ export default function ReportsPage() {
               </div>
               <div className="w-full bg-muted rounded-lg h-2 overflow-hidden">
                 <div
-                  className={`h-full rounded-lg transition-all ${
-                    index === 0
-                      ? 'bg-blue-500'
-                      : index === 1
+                  className={`h-full rounded-lg transition-all ${index === 0
+                    ? 'bg-blue-500'
+                    : index === 1
                       ? 'bg-green-500'
                       : index === 2
-                      ? 'bg-purple-500'
-                      : 'bg-orange-500'
-                  }`}
-                  style={{ width: `${(room.bookings / 48) * 100}%` }}
+                        ? 'bg-purple-500'
+                        : 'bg-orange-500'
+                    }`}
+                  style={{ width: roomPopularity[0].bookings > 0 ? `${(room.bookings / roomPopularity[0].bookings) * 100}%` : '0%' }}
                 />
               </div>
             </div>

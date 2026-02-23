@@ -39,6 +39,7 @@ router.post('/register', async (req, res) => {
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
+    console.log(`[AUTH] Login attempt for email: ${email}`);
 
     if (!email || !password) {
         return res.status(400).json({ error: 'Email and password are required.' });
@@ -47,15 +48,20 @@ router.post('/login', async (req, res) => {
     try {
         const [rows] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
         if (rows.length === 0) {
+            console.log(`[AUTH] User not found for email: ${email}`);
             return res.status(401).json({ error: 'Invalid credentials.' });
         }
 
         const user = rows[0];
+        console.log(`[AUTH] User found: ${user.uid}, role: ${user.userrole_id}`);
+
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
+            console.log(`[AUTH] Password mismatch for user: ${email}`);
             return res.status(401).json({ error: 'Invalid credentials.' });
         }
 
+        console.log(`[AUTH] Login successful for user: ${email}`);
         const token = jwt.sign(
             { uid: user.uid, userrole_id: user.userrole_id, name: user.name },
             process.env.JWT_SECRET,
