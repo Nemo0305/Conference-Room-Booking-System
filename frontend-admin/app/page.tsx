@@ -24,18 +24,19 @@ export default function LoginPage() {
 
     try {
       const data = await loginAdmin(formData.email, formData.password);
+
       // Check admin role
-      if (data.user.userrole_id !== 'admin' && data.user.userrole_id !== 'ADMIN') {
+      if (data.user?.userrole_id !== 'admin' && data.user?.userrole_id !== 'ADMIN') {
         setError('Access denied. Admin privileges required.');
-        localStorage.removeItem('admin_token');
-        localStorage.removeItem('admin_user');
         setLoading(false);
         return;
       }
+
+      localStorage.setItem('admin_token', data.token);
+      localStorage.setItem('admin_user', JSON.stringify(data.user));
       router.push('/admin');
     } catch (err: any) {
-      setError(err.message || 'Login failed');
-    } finally {
+      setError(err.message || 'Login failed. Please check your credentials.');
       setLoading(false);
     }
   };

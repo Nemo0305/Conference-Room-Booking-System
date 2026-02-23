@@ -35,6 +35,17 @@ app.use('/api/bookings', bookingRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/cancellations', cancellationRoutes);
 
+// ── DB Connection Test ────────────────────────────────────────────
+app.get('/api/test-db', async (req, res) => {
+    try {
+        const db = require('./db');
+        const [rows] = await db.query('SELECT 1 + 1 AS result');
+        res.json({ success: true, message: '✅ Database connected!', result: rows[0].result });
+    } catch (err) {
+        res.status(500).json({ success: false, message: '❌ DB connection failed', error: err.message });
+    }
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', message: 'Backend is running', timestamp: new Date().toISOString() });
