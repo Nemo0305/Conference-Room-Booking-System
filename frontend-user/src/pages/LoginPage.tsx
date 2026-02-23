@@ -123,7 +123,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
                             {loading ? 'Signing in...' : 'Sign In'}
                         </button>
                         <p className="text-xs text-center text-slate-500 mt-2">
-                            Demo: AKD1@iem.edu.in / password123
+                            Demo: user@iem.edu.in / user123
                         </p>
                     </form>
                 ) : (
