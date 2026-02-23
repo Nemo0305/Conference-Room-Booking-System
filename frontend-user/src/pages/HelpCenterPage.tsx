@@ -6,8 +6,7 @@ import {
     CaretDown,
     CaretRight
 } from '@phosphor-icons/react';
-import React, { useState } from 'react';
-import Footer from '../components/Footer';
+import { useState } from 'react';
 
 const HelpCenterPage = () => {
     const [openFaq, setOpenFaq] = useState<number | null>(0);

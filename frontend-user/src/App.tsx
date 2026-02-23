@@ -12,14 +12,31 @@ import CalendarPage from './pages/CalendarPage'
 import MyBookingsPage from './pages/MyBookingsPage'
 import HelpCenterPage from './pages/HelpCenterPage'
 import ProfilePage from './pages/ProfilePage'
+import LoginPage from './pages/LoginPage'
+import { useAuth } from './context/AuthContext'
 
 function App() {
     const [currentView, setCurrentView] = useState('home');
+    const { user, isLoading } = useAuth();
 
     const navigateTo = (view: string) => {
         setCurrentView(view);
         window.scrollTo(0, 0);
     };
+
+    // Show loading spinner while auth state is being restored
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
+            </div>
+        );
+    }
+
+    // Show login page if not authenticated
+    if (!user) {
+        return <LoginPage onSuccess={() => navigateTo('home')} />;
+    }
 
     const renderContent = () => {
         switch (currentView) {

@@ -1,5 +1,6 @@
-import { Buildings, Bell, User, CirclesFour, MagnifyingGlass, CalendarBlank, Ticket, Question } from '@phosphor-icons/react';
+import { Buildings, Bell, User, CirclesFour, MagnifyingGlass, CalendarBlank, Ticket, SignOut } from '@phosphor-icons/react';
 import React, { useState, useRef, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
 
 interface HeaderProps {
     currentView: string;
@@ -9,6 +10,7 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
     const [showNotifications, setShowNotifications] = useState(false);
     const notifRef = useRef<HTMLDivElement>(null);
+    const { user, logout } = useAuth();
 
     const navItems = [
         { id: 'home', label: 'Home', icon: <CirclesFour /> },
@@ -57,8 +59,8 @@ const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
                             key={item.id}
                             onClick={() => onNavigate(item.id)}
                             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${currentView === item.id
-                                    ? 'bg-white text-primary shadow-sm'
-                                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                                ? 'bg-white text-primary shadow-sm'
+                                : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
                                 }`}
                         >
                             {/* <span className="hidden lg:inline">{item.icon}</span> */}
@@ -68,8 +70,8 @@ const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
                     <button
                         onClick={() => onNavigate('help')}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${currentView === 'help'
-                                ? 'bg-white text-primary shadow-sm'
-                                : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                            ? 'bg-white text-primary shadow-sm'
+                            : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
                             }`}
                     >
                         Help
@@ -125,7 +127,15 @@ const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
                         `}
                     >
                         <User size={20} />
-                        <span>Profile</span>
+                        <span>{user?.name?.split(' ')[0] || 'Profile'}</span>
+                    </button>
+                    <button
+                        onClick={logout}
+                        title="Sign Out"
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors text-sm font-medium"
+                    >
+                        <SignOut size={18} />
+                        <span className="hidden lg:inline">Sign Out</span>
                     </button>
                 </div>
             </div>

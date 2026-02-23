@@ -391,11 +391,11 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
                 <div className="flex justify-between items-center mb-8">
                     <div>
                         <h2 className="text-2xl font-bold text-slate-800">
-                            {viewType === 'month' 
+                            {viewType === 'month'
                                 ? `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`
                                 : viewType === 'week'
-                                ? `Week of ${monthNames[currentDate.getMonth()]} ${currentDate.getDate()}, ${currentDate.getFullYear()}`
-                                : `${monthNames[currentDate.getMonth()]} ${currentDate.getDate()}, ${currentDate.getFullYear()}`
+                                    ? `Week of ${monthNames[currentDate.getMonth()]} ${currentDate.getDate()}, ${currentDate.getFullYear()}`
+                                    : `${monthNames[currentDate.getMonth()]} ${currentDate.getDate()}, ${currentDate.getFullYear()}`
                             }
                         </h2>
                     </div>
@@ -415,11 +415,10 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
                                         <button
                                             key={view}
                                             onClick={() => { setViewType(view); setIsViewOpen(false); }}
-                                            className={`w-full text-left px-4 py-2.5 capitalize transition-colors ${
-                                                viewType === view
+                                            className={`w-full text-left px-4 py-2.5 capitalize transition-colors ${viewType === view
                                                     ? 'bg-primary-light text-primary font-semibold'
                                                     : 'hover:bg-slate-50'
-                                            }`}
+                                                }`}
                                         >
                                             {view} View
                                         </button>
@@ -457,311 +456,306 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
 
                 {/* MONTH VIEW */}
                 {viewType === 'month' && (
-                <div className="month-view">
-                {/* Days Grid */}
-                <div className="grid grid-cols-7 gap-4">
-                    {/* Empty cells for start padding */}
-                    {Array.from({ length: getFirstDayOfMonth(currentDate) }).map((_, i) => (
-                        <div key={`empty-${i}`} className="aspect-square"></div>
-                    ))}
+                    <div className="month-view">
+                        {/* Days Grid */}
+                        <div className="grid grid-cols-7 gap-4">
+                            {/* Empty cells for start padding */}
+                            {Array.from({ length: getFirstDayOfMonth(currentDate) }).map((_, i) => (
+                                <div key={`empty-${i}`} className="aspect-square"></div>
+                            ))}
 
-                    {/* Active cells */}
-                    {Array.from({ length: getDaysInMonth(currentDate) }).map((_, i) => {
-                        const day = i + 1;
-                        const dateStr = formatDate(currentDate.getFullYear(), currentDate.getMonth(), day);
-                        const status = getDateStatus(dateStr);
-                        const dayBookings = getBookingsForDate(dateStr);
-                        const isSelected = selectedDates.includes(dateStr);
+                            {/* Active cells */}
+                            {Array.from({ length: getDaysInMonth(currentDate) }).map((_, i) => {
+                                const day = i + 1;
+                                const dateStr = formatDate(currentDate.getFullYear(), currentDate.getMonth(), day);
+                                const status = getDateStatus(dateStr);
+                                const dayBookings = getBookingsForDate(dateStr);
+                                const isSelected = selectedDates.includes(dateStr);
+                                void isSelected; // suppress unused-var warning — used in future interactions
 
-                        const statusColors = {
-                            booked: 'bg-green-100 border-green-500 hover:shadow-lg',
-                            pending: 'bg-yellow-100 border-yellow-500 hover:shadow-lg',
-                            available: 'bg-blue-100 border-blue-500 hover:shadow-lg'
-                        };
+                                const statusColors = {
+                                    booked: 'bg-green-100 border-green-500 hover:shadow-lg',
+                                    pending: 'bg-yellow-100 border-yellow-500 hover:shadow-lg',
+                                    available: 'bg-blue-100 border-blue-500 hover:shadow-lg'
+                                };
 
-                        return (
-                            <div
-                                key={day}
-                                className="relative group"
-                                onMouseEnter={() => {
-                                        if (dayBookings.length > 0) setHoveredBooking(dayBookings[0]);
-                                        setHoveredDate(dateStr);
-                                        setActiveDateOptions(dateStr);
-                                    }}
-                                    onMouseLeave={() => {
-                                        setHoveredBooking(null);
-                                        setHoveredDate(null);
-                                        setShowBookPopup(null);
-                                        setActiveDateOptions(null);
-                                    }}
-                            >
-                                <div
-                                    onClick={() => {
-                                        if (status === 'available') {
-                                            setShowBookPopup(dateStr);
-                                        } else {
-                                            handleDateClick(day);
-                                        }
-                                    }}
-                                    className={`
+                                return (
+                                    <div
+                                        key={day}
+                                        className="relative group"
+                                        onMouseEnter={() => {
+                                            if (dayBookings.length > 0) setHoveredBooking(dayBookings[0]);
+                                            setHoveredDate(dateStr);
+                                            setActiveDateOptions(dateStr);
+                                        }}
+                                        onMouseLeave={() => {
+                                            setHoveredBooking(null);
+                                            setHoveredDate(null);
+                                            setShowBookPopup(null);
+                                            setActiveDateOptions(null);
+                                        }}
+                                    >
+                                        <div
+                                            onClick={() => {
+                                                if (status === 'available') {
+                                                    setShowBookPopup(dateStr);
+                                                } else {
+                                                    handleDateClick(day);
+                                                }
+                                            }}
+                                            className={`
                                         aspect-[4/3] rounded-xl border-2 flex flex-col p-3 cursor-pointer transition-all
                                         ${statusColors[status]}
                                     `}
-                                >
-                                    <span className="font-semibold text-slate-800">{day}</span>
-                                    {dayBookings.length > 0 && (
-                                        <div className="mt-1">
-                                            <span className="text-xs text-slate-600 block">
-                                                {dayBookings[0].room.split(' ')[0]}
-                                            </span>
-                                            {dayBookings[0].timeSlot && (
-                                                <span className="text-[11px] text-slate-500 block mt-1">{dayBookings[0].timeSlot}</span>
+                                        >
+                                            <span className="font-semibold text-slate-800">{day}</span>
+                                            {dayBookings.length > 0 && (
+                                                <div className="mt-1">
+                                                    <span className="text-xs text-slate-600 block">
+                                                        {dayBookings[0].room.split(' ')[0]}
+                                                    </span>
+                                                    {dayBookings[0].timeSlot && (
+                                                        <span className="text-[11px] text-slate-500 block mt-1">{dayBookings[0].timeSlot}</span>
+                                                    )}
+                                                </div>
                                             )}
                                         </div>
-                                    )}
-                                </div>
 
-                                {/* Hover Tooltip for Booked/Pending */}
-                                {hoveredBooking && hoveredDate === dateStr && (dayBookings.length > 0) && (
-                                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 bg-slate-900 text-white px-4 py-3 rounded-lg shadow-lg z-20 whitespace-nowrap pointer-events-none">
-                                        <p className="font-semibold text-sm">{hoveredBooking.room}</p>
-                                        <p className="text-xs text-slate-300">Booked by: {hoveredBooking.bookedBy}</p>
-                                        <p className="text-xs text-slate-300">Duration: {hoveredBooking.duration}</p>
-                                        {hoveredBooking.timeSlot && (
-                                            <p className="text-xs text-slate-300">Time: {hoveredBooking.timeSlot}</p>
+                                        {/* Hover Tooltip for Booked/Pending */}
+                                        {hoveredBooking && hoveredDate === dateStr && (dayBookings.length > 0) && (
+                                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 bg-slate-900 text-white px-4 py-3 rounded-lg shadow-lg z-20 whitespace-nowrap pointer-events-none">
+                                                <p className="font-semibold text-sm">{hoveredBooking.room}</p>
+                                                <p className="text-xs text-slate-300">Booked by: {hoveredBooking.bookedBy}</p>
+                                                <p className="text-xs text-slate-300">Duration: {hoveredBooking.duration}</p>
+                                                {hoveredBooking.timeSlot && (
+                                                    <p className="text-xs text-slate-300">Time: {hoveredBooking.timeSlot}</p>
+                                                )}
+                                                <p className="text-xs text-slate-300">Purpose: {hoveredBooking.purpose}</p>
+                                                <p className={`text-xs font-semibold mt-1 ${hoveredBooking.status === 'booked' ? 'text-green-400' : 'text-yellow-400'
+                                                    }`}>
+                                                    {hoveredBooking.status === 'booked' ? 'Confirmed' : 'Pending Approval'}
+                                                </p>
+                                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-2 h-2 bg-slate-900"></div>
+                                            </div>
                                         )}
-                                        <p className="text-xs text-slate-300">Purpose: {hoveredBooking.purpose}</p>
-                                        <p className={`text-xs font-semibold mt-1 ${
-                                            hoveredBooking.status === 'booked' ? 'text-green-400' : 'text-yellow-400'
-                                        }`}>
-                                            {hoveredBooking.status === 'booked' ? 'Confirmed' : 'Pending Approval'}
-                                        </p>
-                                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-2 h-2 bg-slate-900"></div>
-                                    </div>
-                                )}
 
-                                {/* Options overlay on hover/click */}
-                                {activeDateOptions === dateStr && (
-                                    <div className="absolute top-3 right-3 z-30 flex flex-col gap-2">
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                // Open book modal and preselect date
-                                                setIsModalOpen(true);
-                                                setSelectedDates([dateStr]);
-                                                setShowBookPopup(null);
-                                                setActiveDateOptions(null);
-                                            }}
-                                            className="bg-primary text-white text-xs px-3 py-1 rounded shadow"
-                                        >
-                                            Book Now
-                                        </button>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setDetailDate(dateStr);
-                                                setIsDetailOpen(true);
-                                                setActiveDateOptions(null);
-                                            }}
-                                            className="bg-white text-xs px-3 py-1 rounded border border-slate-200 shadow"
-                                        >
-                                            View Details
-                                        </button>
+                                        {/* Options overlay on hover/click */}
+                                        {activeDateOptions === dateStr && (
+                                            <div className="absolute top-3 right-3 z-30 flex flex-col gap-2">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        // Open book modal and preselect date
+                                                        setIsModalOpen(true);
+                                                        setSelectedDates([dateStr]);
+                                                        setShowBookPopup(null);
+                                                        setActiveDateOptions(null);
+                                                    }}
+                                                    className="bg-primary text-white text-xs px-3 py-1 rounded shadow"
+                                                >
+                                                    Book Now
+                                                </button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setDetailDate(dateStr);
+                                                        setIsDetailOpen(true);
+                                                        setActiveDateOptions(null);
+                                                    }}
+                                                    className="bg-white text-xs px-3 py-1 rounded border border-slate-200 shadow"
+                                                >
+                                                    View Details
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-                </div>
+                                );
+                            })}
+                        </div>
+                    </div>
                 )}
 
                 {/* WEEK VIEW */}
                 {viewType === 'week' && (
-                <div className="week-view overflow-x-auto">
-                    {/* Day Headers */}
-                    <div className="flex gap-2 mb-6 pb-6 border-b border-slate-200">
-                        {getWeekDays(currentDate).map((date) => {
-                            const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
-                            const isToday = dateToString(date) === dateToString(new Date());
-                            return (
-                                <div
-                                    key={dateToString(date)}
-                                    className={`flex-1 text-center p-4 rounded-lg border-2 ${
-                                        isToday ? 'bg-primary-light border-primary' : 'bg-slate-50 border-slate-200'
-                                    }`}
-                                >
-                                    <p className="text-xs font-semibold text-slate-500 uppercase">{dayName}</p>
-                                    <p className="text-lg font-bold text-slate-800">{date.getDate()}</p>
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    {/* Time Slots Grid */}
-                    <div className="border border-slate-200 rounded-lg overflow-hidden">
-                        {/* Header row */}
-                        <div className="flex bg-slate-100 border-b border-slate-200">
-                            <div className="w-24 font-semibold text-sm text-slate-600 p-3 border-r border-slate-200">Time</div>
-                            {getWeekDays(currentDate).map((date) => (
-                                <div key={dateToString(date)} className="flex-1 font-semibold text-sm text-slate-800 p-3 text-center border-r border-slate-200 last:border-r-0">
-                                    &nbsp;
-                                </div>
-                            ))}
+                    <div className="week-view overflow-x-auto">
+                        {/* Day Headers */}
+                        <div className="flex gap-2 mb-6 pb-6 border-b border-slate-200">
+                            {getWeekDays(currentDate).map((date) => {
+                                const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
+                                const isToday = dateToString(date) === dateToString(new Date());
+                                return (
+                                    <div
+                                        key={dateToString(date)}
+                                        className={`flex-1 text-center p-4 rounded-lg border-2 ${isToday ? 'bg-primary-light border-primary' : 'bg-slate-50 border-slate-200'
+                                            }`}
+                                    >
+                                        <p className="text-xs font-semibold text-slate-500 uppercase">{dayName}</p>
+                                        <p className="text-lg font-bold text-slate-800">{date.getDate()}</p>
+                                    </div>
+                                );
+                            })}
                         </div>
 
-                        {/* Time slots */}
-                        {Array.from({ length: 10 }).map((_, i) => {
-                            const hour = 9 + i;
-                            const timeStr = `${hour % 12 || 12}:00 ${hour < 12 ? 'AM' : 'PM'}`;
-                            return (
-                                <div key={i} className="flex border-t border-slate-200">
-                                    <div className="w-24 text-xs font-medium text-slate-600 p-3 border-r border-slate-200 bg-slate-50">
-                                        {timeStr}
+                        {/* Time Slots Grid */}
+                        <div className="border border-slate-200 rounded-lg overflow-hidden">
+                            {/* Header row */}
+                            <div className="flex bg-slate-100 border-b border-slate-200">
+                                <div className="w-24 font-semibold text-sm text-slate-600 p-3 border-r border-slate-200">Time</div>
+                                {getWeekDays(currentDate).map((date) => (
+                                    <div key={dateToString(date)} className="flex-1 font-semibold text-sm text-slate-800 p-3 text-center border-r border-slate-200 last:border-r-0">
+                                        &nbsp;
                                     </div>
-                                    {getWeekDays(currentDate).map((date) => {
-                                        const dateStr = dateToString(date);
-                                        const dayBookings = getBookingsForDate(dateStr);
-                                        const hasBooking = dayBookings.length > 0;
-                                        const status = getDateStatus(dateStr);
+                                ))}
+                            </div>
 
-                                        return (
-                                            <div
-                                                key={`${dateStr}-${i}`}
-                                                className={`flex-1 p-3 border-r border-slate-200 last:border-r-0 min-h-16 cursor-pointer transition-colors ${
-                                                    hasBooking
-                                                        ? status === 'booked'
-                                                            ? 'bg-green-100/50 hover:bg-green-100'
-                                                            : 'bg-yellow-100/50 hover:bg-yellow-100'
-                                                        : 'bg-blue-100/30 hover:bg-blue-100/60'
-                                                }`}
-                                                onMouseEnter={() => {
-                                                    if (hasBooking) setHoveredBooking(dayBookings[0]);
-                                                    setHoveredDate(dateStr);
-                                                }}
-                                                onMouseLeave={() => {
-                                                    setHoveredBooking(null);
-                                                    setHoveredDate(null);
-                                                }}
-                                                onClick={() => {
-                                                    if (!hasBooking) {
-                                                        setShowBookPopup(dateStr);
-                                                    }
-                                                }}
-                                            >
-                                                {hasBooking && (
-                                                    <div className="p-2">
-                                                        <div className={`text-xs font-semibold ${
-                                                            status === 'booked' ? 'text-green-700' : 'text-yellow-700'
-                                                        }`}>{dayBookings[0].room.split(' ')[0]}</div>
-                                                        {dayBookings[0].timeSlot && (
-                                                            <div className="text-[11px] text-slate-600 mt-1">{dayBookings[0].timeSlot}</div>
-                                                        )}
-                                                    </div>
-                                                )}
-                                                {hoveredDate === dateStr && hasBooking && hoveredBooking && (
-                                                    <div className="text-xs text-slate-600 mt-1">
-                                                        <p>{hoveredBooking.bookedBy}</p>
-                                                        {hoveredBooking.timeSlot && <p className="mt-1 text-[11px] text-slate-500">{hoveredBooking.timeSlot}</p>}
-                                                    </div>
-                                                )}
-                                                {showBookPopup === dateStr && !hasBooking && (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setIsModalOpen(true);
-                                                            setSelectedDates([dateStr]);
-                                                            setShowBookPopup(null);
-                                                        }}
-                                                        className="text-xs bg-primary text-white px-2 py-1 rounded font-semibold hover:bg-primary-dark transition-colors"
-                                                    >
-                                                        Book
-                                                    </button>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            );
-                        })}
+                            {/* Time slots */}
+                            {Array.from({ length: 10 }).map((_, i) => {
+                                const hour = 9 + i;
+                                const timeStr = `${hour % 12 || 12}:00 ${hour < 12 ? 'AM' : 'PM'}`;
+                                return (
+                                    <div key={i} className="flex border-t border-slate-200">
+                                        <div className="w-24 text-xs font-medium text-slate-600 p-3 border-r border-slate-200 bg-slate-50">
+                                            {timeStr}
+                                        </div>
+                                        {getWeekDays(currentDate).map((date) => {
+                                            const dateStr = dateToString(date);
+                                            const dayBookings = getBookingsForDate(dateStr);
+                                            const hasBooking = dayBookings.length > 0;
+                                            const status = getDateStatus(dateStr);
+
+                                            return (
+                                                <div
+                                                    key={`${dateStr}-${i}`}
+                                                    className={`flex-1 p-3 border-r border-slate-200 last:border-r-0 min-h-16 cursor-pointer transition-colors ${hasBooking
+                                                            ? status === 'booked'
+                                                                ? 'bg-green-100/50 hover:bg-green-100'
+                                                                : 'bg-yellow-100/50 hover:bg-yellow-100'
+                                                            : 'bg-blue-100/30 hover:bg-blue-100/60'
+                                                        }`}
+                                                    onMouseEnter={() => {
+                                                        if (hasBooking) setHoveredBooking(dayBookings[0]);
+                                                        setHoveredDate(dateStr);
+                                                    }}
+                                                    onMouseLeave={() => {
+                                                        setHoveredBooking(null);
+                                                        setHoveredDate(null);
+                                                    }}
+                                                    onClick={() => {
+                                                        if (!hasBooking) {
+                                                            setShowBookPopup(dateStr);
+                                                        }
+                                                    }}
+                                                >
+                                                    {hasBooking && (
+                                                        <div className="p-2">
+                                                            <div className={`text-xs font-semibold ${status === 'booked' ? 'text-green-700' : 'text-yellow-700'
+                                                                }`}>{dayBookings[0].room.split(' ')[0]}</div>
+                                                            {dayBookings[0].timeSlot && (
+                                                                <div className="text-[11px] text-slate-600 mt-1">{dayBookings[0].timeSlot}</div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    {hoveredDate === dateStr && hasBooking && hoveredBooking && (
+                                                        <div className="text-xs text-slate-600 mt-1">
+                                                            <p>{hoveredBooking.bookedBy}</p>
+                                                            {hoveredBooking.timeSlot && <p className="mt-1 text-[11px] text-slate-500">{hoveredBooking.timeSlot}</p>}
+                                                        </div>
+                                                    )}
+                                                    {showBookPopup === dateStr && !hasBooking && (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setIsModalOpen(true);
+                                                                setSelectedDates([dateStr]);
+                                                                setShowBookPopup(null);
+                                                            }}
+                                                            className="text-xs bg-primary text-white px-2 py-1 rounded font-semibold hover:bg-primary-dark transition-colors"
+                                                        >
+                                                            Book
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
-                </div>
                 )}
 
                 {/* DAY VIEW */}
                 {viewType === 'day' && (
-                <div className="day-view">
-                    {/* Day Header */}
-                    <div className="bg-gradient-to-r from-primary-light to-primary/10 p-6 rounded-lg mb-8 border-2 border-primary">
-                        <h3 className="text-xl font-bold text-primary mb-2">{monthNames[currentDate.getMonth()]} {currentDate.getDate()}, {currentDate.getFullYear()}</h3>
-                        <p className="text-sm text-slate-600">
-                            {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][currentDate.getDay()]}
-                        </p>
-                    </div>
+                    <div className="day-view">
+                        {/* Day Header */}
+                        <div className="bg-gradient-to-r from-primary-light to-primary/10 p-6 rounded-lg mb-8 border-2 border-primary">
+                            <h3 className="text-xl font-bold text-primary mb-2">{monthNames[currentDate.getMonth()]} {currentDate.getDate()}, {currentDate.getFullYear()}</h3>
+                            <p className="text-sm text-slate-600">
+                                {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][currentDate.getDay()]}
+                            </p>
+                        </div>
 
-                    {/* Time Slots with Available Rooms */}
-                    <div className="space-y-4">
-                        {Array.from({ length: 10 }).map((_, i) => {
-                            const hour = 9 + i;
-                            const timeStr = `${hour % 12 || 12}:00 ${hour < 12 ? 'AM' : 'PM'}`;
-                            const dateStr = dateToString(currentDate);
-                            const dayBookings = getBookingsForDate(dateStr);
+                        {/* Time Slots with Available Rooms */}
+                        <div className="space-y-4">
+                            {Array.from({ length: 10 }).map((_, i) => {
+                                const hour = 9 + i;
+                                const timeStr = `${hour % 12 || 12}:00 ${hour < 12 ? 'AM' : 'PM'}`;
+                                const dateStr = dateToString(currentDate);
+                                const dayBookings = getBookingsForDate(dateStr);
 
-                            return (
-                                <div key={i} className="border border-slate-200 rounded-lg p-4">
-                                    <h4 className="font-bold text-slate-800 mb-3">{timeStr}</h4>
-                                    <div className="space-y-2">
-                                        {dayBookings.length > 0 ? (
-                                            dayBookings.map((booking) => (
-                                                <div
-                                                    key={booking.id}
-                                                    className={`p-3 rounded-lg border-l-4 ${
-                                                        booking.status === 'booked'
-                                                            ? 'bg-green-50 border-green-500'
-                                                            : 'bg-yellow-50 border-yellow-500'
-                                                    }`}
-                                                    onMouseEnter={() => setHoveredBooking(booking)}
-                                                    onMouseLeave={() => setHoveredBooking(null)}
-                                                >
-                                                    <p className="font-semibold text-sm text-slate-800">{booking.room}</p>
-                                                    {booking.timeSlot && <p className="text-xs text-slate-600">Time: {booking.timeSlot}</p>}
-                                                    <p className="text-xs text-slate-600">Booked by: {booking.bookedBy}</p>
-                                                    <p className={`text-xs font-semibold mt-1 ${
-                                                        booking.status === 'booked' ? 'text-green-600' : 'text-yellow-600'
-                                                    }`}>
-                                                        {booking.status === 'booked' ? '✓ Confirmed' : '⏳ Pending Approval'}
-                                                    </p>
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <div
-                                                className="p-3 rounded-lg bg-blue-50 border-2 border-blue-300 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-100 transition-colors"
-                                                onClick={() => {
-                                                    setShowBookPopup(`${dateStr}-${hour}`);
-                                                }}
-                                            >
-                                                <p className="text-sm font-semibold text-blue-700">Available - Click to Book</p>
-                                                {showBookPopup === `${dateStr}-${hour}` && (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setIsModalOpen(true);
-                                                            setSelectedDates([dateStr]);
-                                                            setShowBookPopup(null);
-                                                        }}
-                                                        className="mt-2 bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded font-semibold text-xs transition-colors"
+                                return (
+                                    <div key={i} className="border border-slate-200 rounded-lg p-4">
+                                        <h4 className="font-bold text-slate-800 mb-3">{timeStr}</h4>
+                                        <div className="space-y-2">
+                                            {dayBookings.length > 0 ? (
+                                                dayBookings.map((booking) => (
+                                                    <div
+                                                        key={booking.id}
+                                                        className={`p-3 rounded-lg border-l-4 ${booking.status === 'booked'
+                                                                ? 'bg-green-50 border-green-500'
+                                                                : 'bg-yellow-50 border-yellow-500'
+                                                            }`}
+                                                        onMouseEnter={() => setHoveredBooking(booking)}
+                                                        onMouseLeave={() => setHoveredBooking(null)}
                                                     >
-                                                        Proceed to Booking
-                                                    </button>
-                                                )}
-                                            </div>
-                                        )}
+                                                        <p className="font-semibold text-sm text-slate-800">{booking.room}</p>
+                                                        {booking.timeSlot && <p className="text-xs text-slate-600">Time: {booking.timeSlot}</p>}
+                                                        <p className="text-xs text-slate-600">Booked by: {booking.bookedBy}</p>
+                                                        <p className={`text-xs font-semibold mt-1 ${booking.status === 'booked' ? 'text-green-600' : 'text-yellow-600'
+                                                            }`}>
+                                                            {booking.status === 'booked' ? '✓ Confirmed' : '⏳ Pending Approval'}
+                                                        </p>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div
+                                                    className="p-3 rounded-lg bg-blue-50 border-2 border-blue-300 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-100 transition-colors"
+                                                    onClick={() => {
+                                                        setShowBookPopup(`${dateStr}-${hour}`);
+                                                    }}
+                                                >
+                                                    <p className="text-sm font-semibold text-blue-700">Available - Click to Book</p>
+                                                    {showBookPopup === `${dateStr}-${hour}` && (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setIsModalOpen(true);
+                                                                setSelectedDates([dateStr]);
+                                                                setShowBookPopup(null);
+                                                            }}
+                                                            className="mt-2 bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded font-semibold text-xs transition-colors"
+                                                        >
+                                                            Proceed to Booking
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })}
+                        </div>
                     </div>
-                </div>
                 )}
             </div>
 

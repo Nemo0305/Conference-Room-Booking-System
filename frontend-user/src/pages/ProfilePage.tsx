@@ -1,15 +1,12 @@
 import {
-    User,
     Envelope,
     Phone,
     Briefcase,
     Gear,
     Shield,
-    Bell,
     SignOut
 } from '@phosphor-icons/react';
-import React from 'react';
-import Footer from '../components/Footer';
+
 
 const ProfilePage = () => {
     return (

@@ -11,8 +11,6 @@ import {
     ForkKnife,
     FileText
 } from '@phosphor-icons/react';
-import React from 'react';
-import Footer from '../components/Footer';
 
 const TicketPage = () => {
     return (

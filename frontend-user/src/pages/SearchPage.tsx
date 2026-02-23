@@ -2,20 +2,15 @@ import {
     Funnel,
     MagnifyingGlass,
     Users,
-    ProjectorScreen,
-    ChalkboardTeacher,
-    WifiHigh,
-    MonitorPlay,
-    VideoCamera,
     Star,
     CaretDown
 } from '@phosphor-icons/react';
-import React, { useState } from 'react';
-import Footer from '../components/Footer';
+import React, { useState, useEffect } from 'react';
+import { fetchRooms, createBooking, getCurrentUser } from '../lib/api';
 
-// Mock data type
+// Update Room interface to match the database and UI needs
 export interface Room {
-    id: number;
+    id: string; // Use catalog_id or room_id
     name: string;
     location: string;
     description: string;
@@ -39,6 +34,18 @@ interface Office {
 }
 
 const SearchPage: React.FC<SearchPageProps> = () => {
+    const [selectedRoomType, setSelectedRoomType] = useState<Room | null>(null);
+    const [rooms, setRooms] = useState<Room[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    // Booking form state
+    const [bookDate, setBookDate] = useState('');
+    const [bookStartTime, setBookStartTime] = useState('');
+    const [bookEndTime, setBookEndTime] = useState('');
+    const [bookPurpose, setBookPurpose] = useState('');
+    const [bookingSubmitting, setBookingSubmitting] = useState(false);
+    const [bookingResult, setBookingResult] = useState<{ ok: boolean; msg: string } | null>(null);
+    // Filter & search state
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedRoomTypes, setSelectedRoomTypes] = useState<string[]>([]);
     const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
@@ -47,7 +54,35 @@ const SearchPage: React.FC<SearchPageProps> = () => {
     const [filteredRooms, setFilteredRooms] = useState<Room[]>([]);
     const [hasFiltered, setHasFiltered] = useState(false);
     const [selectedOffice, setSelectedOffice] = useState<string | null>(null);
-    const [selectedRoomType, setSelectedRoomType] = useState<Room | null>(null);
+
+    useEffect(() => {
+        const loadRooms = async () => {
+            try {
+                const apiRooms = await fetchRooms();
+                const mappedRooms: Room[] = apiRooms.map(r => ({
+                    id: r.room_id,
+                    name: r.room_name,
+                    location: r.location,
+                    description: `Located on Floor ${r.floor_no}, Room ${r.room_number}. ${r.availability || 'Available for booking.'}`,
+                    capacity: r.capacity,
+                    rating: 4.5 + (Math.random() * 0.5), // Randomized for UI
+                    reviews: Math.floor(Math.random() * 100) + 10,
+                    image: `https://images.unsplash.com/photo-1497366216548-37526070297c?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80`, // Placeholder
+                    tags: [r.status || 'Available'],
+                    utilization: Math.floor(Math.random() * 100),
+                    amenities: r.amenities ? r.amenities.split(',').map(a => a.trim()) : [],
+                    type: 'Conference Room' // Defaulting for now
+                }));
+                setRooms(mappedRooms);
+                setLoading(false);
+            } catch (err) {
+                console.error(err);
+                setError('Failed to load rooms. Please check if the backend is running.');
+                setLoading(false);
+            }
+        };
+        loadRooms();
+    }, []);
 
     const filters = {
         roomType: ['Conference Room', 'Meeting Room', 'Training Room', 'Auditorium'],
@@ -56,134 +91,6 @@ const SearchPage: React.FC<SearchPageProps> = () => {
         capacity: ['2-6 People', '6-12 People', '12-20 People', '20+ People'],
     };
 
-    const rooms: Room[] = [
-        {
-            id: 1,
-            name: "Executive Boardroom",
-            location: "Downtown Office",
-            description: "Premium boardroom with state-of-the-art video conferencing facilities, perfect for executive meetings and client presentations.",
-            capacity: 12,
-            rating: 4.8,
-            reviews: 124,
-            image: "https://images.unsplash.com/photo-1497366216548-37526070297c?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80",
-            tags: ["Available"],
-            utilization: 71,
-            amenities: ["video-conferencing", "whiteboard", "projector", "wifi"],
-            type: 'Conference Room'
-        },
-        {
-            id: 2,
-            name: "Conference Room A",
-            location: "Downtown Office",
-            description: "Spacious conference room ideal for team meetings, workshops, and training sessions with flexible seating arrangements.",
-            capacity: 25,
-            rating: 4.6,
-            reviews: 89,
-            image: "https://images.unsplash.com/photo-1497366811353-6870744d04b2?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80",
-            tags: ["Limited"],
-            utilization: 49,
-            amenities: ["projector", "whiteboard", "wifi", "audio-system"],
-            type: 'Conference Room'
-        },
-        {
-            id: 3,
-            name: "Tech Park Meeting Room",
-            location: "Tech Park Campus",
-            description: "Modern meeting room equipped with latest technology and video conferencing setup for productive team collaborations.",
-            capacity: 8,
-            rating: 4.5,
-            reviews: 56,
-            image: "https://images.unsplash.com/photo-1552664730-d307ca884978?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80",
-            tags: ["Available"],
-            utilization: 35,
-            amenities: ["video-conferencing", "wifi", "projector"],
-            type: 'Meeting Room'
-        },
-        {
-            id: 4,
-            name: "Training Hall B",
-            location: "Business District",
-            description: "Large training facility with flexible layout options, suitable for workshops, seminars, and training sessions.",
-            capacity: 50,
-            rating: 4.7,
-            reviews: 102,
-            image: "https://images.unsplash.com/photo-1552664730-d307ca884978?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80",
-            tags: ["Available"],
-            utilization: 62,
-            amenities: ["audio-system", "whiteboard", "projector", "wifi"],
-            type: 'Training Room'
-        },
-        {
-            id: 5,
-            name: "Innovation Lab",
-            location: "Tech Park Campus",
-            description: "Creative space for brainstorming and collaborative work with modern amenities and flexible seating.",
-            capacity: 20,
-            rating: 4.9,
-            reviews: 78,
-            image: "https://images.unsplash.com/photo-1552664730-d307ca884978?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80",
-            tags: ["Available"],
-            utilization: 55,
-            amenities: ["whiteboard", "video-conferencing", "wifi"],
-            type: 'Meeting Room'
-        },
-        {
-            id: 6,
-            name: "Grand Auditorium",
-            location: "Business District",
-            description: "Premium auditorium designed for large presentations, conferences, and corporate events with full AV setup.",
-            capacity: 200,
-            rating: 4.8,
-            reviews: 145,
-            image: "https://images.unsplash.com/photo-1505373877841-8d25f7d46678?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80",
-            tags: ["Limited"],
-            utilization: 85,
-            amenities: ["audio-system", "projector", "video-conferencing", "wifi"],
-            type: 'Auditorium'
-        },
-        {
-            id: 7,
-            name: "Auditorium",
-            location: "Downtown Office",
-            description: "Large auditorium for major presentations and events.",
-            capacity: 150,
-            rating: 4.7,
-            reviews: 98,
-            image: "https://images.unsplash.com/photo-1505373877841-8d25f7d46678?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80",
-            tags: ["Available"],
-            utilization: 40,
-            amenities: ["audio-system", "projector", "video-conferencing"],
-            type: 'Auditorium'
-        },
-        {
-            id: 8,
-            name: "Meeting Room",
-            location: "Tech Park Campus",
-            description: "Versatile meeting space for team gatherings.",
-            capacity: 10,
-            rating: 4.4,
-            reviews: 45,
-            image: "https://images.unsplash.com/photo-1552664730-d307ca884978?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80",
-            tags: ["Available"],
-            utilization: 28,
-            amenities: ["wifi", "projector"],
-            type: 'Meeting Room'
-        },
-        {
-            id: 9,
-            name: "Board Room",
-            location: "Business District",
-            description: "Executive board room for confidential meetings.",
-            capacity: 16,
-            rating: 4.9,
-            reviews: 67,
-            image: "https://images.unsplash.com/photo-1497366216548-37526070297c?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80",
-            tags: ["Available"],
-            utilization: 30,
-            amenities: ["video-conferencing", "whiteboard", "audio-system"],
-            type: 'Conference Room'
-        }
-    ];
 
     const getCapacityRange = (people: number): string => {
         if (people <= 6) return '2-6 People';
@@ -276,6 +183,32 @@ const SearchPage: React.FC<SearchPageProps> = () => {
     const getRoomTypesForOffice = (office: string): Room[] => {
         return displayRooms.filter(room => room.location === office);
     };
+
+    if (loading) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[400px]">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+                <p className="text-slate-500 font-medium">Loading spaces...</p>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[400px] text-center px-4">
+                <div className="bg-red-50 text-red-600 p-4 rounded-xl mb-6 max-w-md">
+                    <p className="font-bold mb-1">Error Loading Data</p>
+                    <p className="text-sm">{error}</p>
+                </div>
+                <button
+                    onClick={() => window.location.reload()}
+                    className="bg-primary text-white px-6 py-2 rounded-lg font-bold"
+                >
+                    Retry Connection
+                </button>
+            </div>
+        );
+    }
 
     // If an office is selected, show room types
     if (selectedOffice) {
@@ -420,30 +353,57 @@ const SearchPage: React.FC<SearchPageProps> = () => {
                         <div className="bg-white rounded-xl border border-slate-200 p-6 sticky top-8">
                             <h3 className="text-xl font-bold text-slate-800 mb-6">Book This Room</h3>
 
-                            <form className="space-y-4">
+                            {bookingResult && (
+                                <div className={`mb-4 p-3 rounded-lg text-sm font-medium ${bookingResult.ok ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-600 border border-red-200'
+                                    }`}>
+                                    {bookingResult.msg}
+                                </div>
+                            )}
+
+                            <form className="space-y-4" onSubmit={async (e) => {
+                                e.preventDefault();
+                                const user = getCurrentUser();
+                                if (!user) { setBookingResult({ ok: false, msg: 'Please log in first.' }); return; }
+                                if (!selectedRoomType) return;
+                                setBookingSubmitting(true);
+                                setBookingResult(null);
+                                try {
+                                    const result = await createBooking({
+                                        uid: user.uid,
+                                        catalog_id: selectedRoomType.id.startsWith('R-') ? 'CAT-01' : 'CAT-01',
+                                        room_id: selectedRoomType.id,
+                                        start_date: bookDate,
+                                        end_date: bookDate,
+                                        start_time: bookStartTime,
+                                        end_time: bookEndTime,
+                                        purpose: bookPurpose,
+                                    });
+                                    setBookingResult({ ok: true, msg: `✅ Booking confirmed! ID: ${result.booking_id}` });
+                                    setBookDate(''); setBookStartTime(''); setBookEndTime(''); setBookPurpose('');
+                                } catch (err: any) {
+                                    setBookingResult({ ok: false, msg: err.message });
+                                } finally {
+                                    setBookingSubmitting(false);
+                                }
+                            }}>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-2">Date</label>
-                                    <input type="date" className="w-full p-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary" />
+                                    <input type="date" value={bookDate} onChange={e => setBookDate(e.target.value)} required className="w-full p-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary" />
                                 </div>
 
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-2">Start Time</label>
-                                    <input type="time" className="w-full p-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary" />
+                                    <input type="time" value={bookStartTime} onChange={e => setBookStartTime(e.target.value)} required className="w-full p-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary" />
                                 </div>
 
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-2">End Time</label>
-                                    <input type="time" className="w-full p-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary" />
+                                    <input type="time" value={bookEndTime} onChange={e => setBookEndTime(e.target.value)} required className="w-full p-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary" />
                                 </div>
 
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-2">Purpose</label>
-                                    <textarea rows={3} className="w-full p-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Meeting purpose..."></textarea>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-2">Number of Attendees</label>
-                                    <input type="number" min="1" max={selectedRoomType.capacity} className="w-full p-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary" />
+                                    <textarea rows={3} value={bookPurpose} onChange={e => setBookPurpose(e.target.value)} className="w-full p-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Meeting purpose..."></textarea>
                                 </div>
 
                                 <div className="pt-4 border-t border-slate-200">
@@ -451,8 +411,8 @@ const SearchPage: React.FC<SearchPageProps> = () => {
                                         <span className="font-semibold">Total Cost: </span>
                                         <span className="text-lg font-bold text-primary">Free</span>
                                     </p>
-                                    <button type="submit" className="w-full bg-primary hover:bg-primary-dark text-white font-bold py-3 rounded-lg transition-colors">
-                                        Confirm Booking
+                                    <button type="submit" disabled={bookingSubmitting} className="w-full bg-primary hover:bg-primary-dark text-white font-bold py-3 rounded-lg transition-colors disabled:opacity-60">
+                                        {bookingSubmitting ? 'Submitting...' : 'Confirm Booking'}
                                     </button>
                                 </div>
                             </form>
@@ -621,7 +581,7 @@ const SearchPage: React.FC<SearchPageProps> = () => {
                                         ))}
                                     </div>
 
-                                    <button 
+                                    <button
                                         onClick={() => setSelectedOffice(office.location)}
                                         className="w-full bg-primary hover:bg-primary-dark text-white font-semibold py-2 rounded-lg transition-colors cursor-pointer"
                                     >

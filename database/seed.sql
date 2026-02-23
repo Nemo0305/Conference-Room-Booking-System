@@ -1,96 +1,48 @@
 -- ============================================================
 --  Conference Room Booking System — Seed Data
---  Run this AFTER schema.sql
+--  Run this AFTER conference_system.sql
 -- ============================================================
 
--- ─────────────────────────────────────────
--- ROLES
--- ─────────────────────────────────────────
-INSERT INTO roles (role_id, role_name) VALUES
-(1, 'admin'),
-(2, 'user');
+USE conference_system;
 
 -- ─────────────────────────────────────────
--- USERS (passwords are hashed — plain: 'password123')
+-- USERS
+-- Passwords: plain 'password123' (store hashed in production)
+-- userrole_id: 'admin' or 'user'
 -- ─────────────────────────────────────────
-INSERT INTO users (role_id, full_name, email, password_hash, phone, department) VALUES
-(1, 'Admin User',      'admin@company.com',   '$2b$10$hashedpassword1', '9000000001', 'IT'),
-(2, 'Alice Johnson',   'alice@company.com',   '$2b$10$hashedpassword2', '9000000002', 'Engineering'),
-(2, 'Bob Smith',       'bob@company.com',     '$2b$10$hashedpassword3', '9000000003', 'Marketing'),
-(2, 'Carol Williams',  'carol@company.com',   '$2b$10$hashedpassword4', '9000000004', 'HR'),
-(2, 'David Brown',     'david@company.com',   '$2b$10$hashedpassword5', '9000000005', 'Finance');
-
--- ─────────────────────────────────────────
--- AMENITIES
--- ─────────────────────────────────────────
-INSERT INTO amenities (amenity_name, icon) VALUES
-('Projector',           'projector'),
-('Whiteboard',          'whiteboard'),
-('Video Conferencing',  'video'),
-('WiFi',                'wifi'),
-('Air Conditioning',    'ac'),
-('Telephone',           'phone'),
-('TV Screen',           'tv'),
-('Sound System',        'speaker'),
-('Coffee Machine',      'coffee'),
-('Wheelchair Access',   'accessibility');
+INSERT INTO users (uid, userrole_id, name, email, password, dept, phone_no) VALUES
+('U-01', 'admin', 'Admin User',      'admin@company.com',  'password123', 'IT',          '9000000001'),
+('U-02', 'user',  'Alice Johnson',   'alice@company.com',  'password123', 'Engineering', '9000000002'),
+('U-03', 'user',  'Bob Smith',       'bob@company.com',    'password123', 'Marketing',   '9000000003'),
+('U-04', 'user',  'Carol Williams',  'carol@company.com',  'password123', 'HR',          '9000000004'),
+('U-05', 'user',  'David Brown',     'david@company.com',  'password123', 'Finance',     '9000000005');
 
 -- ─────────────────────────────────────────
--- ROOMS
+-- CONFERENCE CATALOG (Rooms)
+-- Composite PK: (catalog_id, room_id)
 -- ─────────────────────────────────────────
-INSERT INTO rooms (room_name, location, floor, capacity, room_type, description, is_available, price_per_hour) VALUES
-('Executive Boardroom', 'Block A, Floor 5', 'Floor 5',  20, 'boardroom',   'Premium boardroom with city view, full AV setup.',       TRUE,  0.00),
-('Innovation Hub',      'Block B, Floor 2', 'Floor 2',  12, 'conference',  'Creative space with whiteboards and brainstorming tools.', TRUE,  0.00),
-('Meeting Room 1',      'Block A, Floor 1', 'Floor 1',   6, 'meeting',     'Small meeting room ideal for quick syncs.',               TRUE,  0.00),
-('Meeting Room 2',      'Block A, Floor 1', 'Floor 1',   6, 'meeting',     'Small meeting room with projector.',                      TRUE,  0.00),
-('Training Center',     'Block C, Floor 3', 'Floor 3',  40, 'training',    'Large training room with projector and sound system.',    TRUE,  0.00),
-('Sky Lounge',          'Block B, Floor 6', 'Floor 6',  15, 'conference',  'Rooftop conference room with panoramic views.',           TRUE,  0.00);
-
--- ─────────────────────────────────────────
--- ROOM AMENITIES
--- ─────────────────────────────────────────
--- Executive Boardroom: Projector, Video Conferencing, WiFi, AC, Telephone, TV Screen, Sound System
-INSERT INTO room_amenities (room_id, amenity_id) VALUES
-(1, 1), (1, 3), (1, 4), (1, 5), (1, 6), (1, 7), (1, 8);
-
--- Innovation Hub: Whiteboard, WiFi, AC, TV Screen
-INSERT INTO room_amenities (room_id, amenity_id) VALUES
-(2, 2), (2, 4), (2, 5), (2, 7);
-
--- Meeting Room 1: Whiteboard, WiFi, AC
-INSERT INTO room_amenities (room_id, amenity_id) VALUES
-(3, 2), (3, 4), (3, 5);
-
--- Meeting Room 2: Projector, Whiteboard, WiFi, AC
-INSERT INTO room_amenities (room_id, amenity_id) VALUES
-(4, 1), (4, 2), (4, 4), (4, 5);
-
--- Training Center: Projector, WiFi, AC, Sound System, Wheelchair Access
-INSERT INTO room_amenities (room_id, amenity_id) VALUES
-(5, 1), (5, 4), (5, 5), (5, 8), (5, 10);
-
--- Sky Lounge: Video Conferencing, WiFi, AC, Coffee Machine
-INSERT INTO room_amenities (room_id, amenity_id) VALUES
-(6, 3), (6, 4), (6, 5), (6, 9);
+INSERT INTO conference_catalog (catalog_id, room_id, room_name, capacity, location, amenities, status, floor_no, room_number, availability) VALUES
+('CAT-01', 'R-01', 'Executive Boardroom', 20, 'Block A',  'Projector, Video Conferencing, WiFi, AC, Telephone, TV Screen, Sound System', 'active', 5, 'A501', 'available'),
+('CAT-01', 'R-02', 'Innovation Hub',       12, 'Block B',  'Whiteboard, WiFi, AC, TV Screen',                                           'active', 2, 'B201', 'available'),
+('CAT-02', 'R-03', 'Meeting Room 1',        6, 'Block A',  'Whiteboard, WiFi, AC',                                                      'active', 1, 'A101', 'available'),
+('CAT-02', 'R-04', 'Meeting Room 2',        6, 'Block A',  'Projector, Whiteboard, WiFi, AC',                                           'active', 1, 'A102', 'available'),
+('CAT-03', 'R-05', 'Training Center',      40, 'Block C',  'Projector, WiFi, AC, Sound System, Wheelchair Access',                      'active', 3, 'C301', 'available'),
+('CAT-03', 'R-06', 'Sky Lounge',           15, 'Block B',  'Video Conferencing, WiFi, AC, Coffee Machine',                              'active', 6, 'B601', 'available');
 
 -- ─────────────────────────────────────────
 -- BOOKINGS
 -- ─────────────────────────────────────────
-INSERT INTO bookings (user_id, room_id, title, booking_date, start_time, end_time, attendees_count, status) VALUES
-(2, 1, 'Q1 Strategy Meeting',       '2026-02-20', '09:00:00', '11:00:00', 10, 'confirmed'),
-(3, 2, 'Marketing Campaign Review', '2026-02-20', '13:00:00', '14:30:00',  6, 'confirmed'),
-(4, 3, 'HR Policy Discussion',      '2026-02-21', '10:00:00', '11:00:00',  4, 'confirmed'),
-(5, 4, 'Budget Planning',           '2026-02-21', '14:00:00', '16:00:00',  5, 'confirmed'),
-(2, 5, 'New Employee Training',     '2026-02-24', '09:00:00', '17:00:00', 30, 'confirmed'),
-(3, 6, 'Client Presentation',       '2026-02-25', '11:00:00', '12:30:00',  8, 'pending');
+INSERT INTO booking (booking_id, catalog_id, room_id, uid, start_date, end_date, start_time, end_time, purpose, status) VALUES
+('B-01', 'CAT-01', 'R-01', 'U-02', '2026-02-20', '2026-02-20', '09:00:00', '11:00:00', 'Q1 Strategy Meeting',       'confirmed'),
+('B-02', 'CAT-01', 'R-02', 'U-03', '2026-02-20', '2026-02-20', '13:00:00', '14:30:00', 'Marketing Campaign Review', 'confirmed'),
+('B-03', 'CAT-02', 'R-03', 'U-04', '2026-02-21', '2026-02-21', '10:00:00', '11:00:00', 'HR Policy Discussion',      'confirmed'),
+('B-04', 'CAT-02', 'R-04', 'U-05', '2026-02-21', '2026-02-21', '14:00:00', '16:00:00', 'Budget Planning',           'confirmed'),
+('B-05', 'CAT-03', 'R-05', 'U-02', '2026-02-24', '2026-02-24', '09:00:00', '17:00:00', 'New Employee Training',     'confirmed'),
+('B-06', 'CAT-03', 'R-06', 'U-03', '2026-02-25', '2026-02-25', '11:00:00', '12:30:00', 'Client Presentation',       'pending');
 
 -- ─────────────────────────────────────────
--- NOTIFICATIONS
+-- CANCELLATIONS
 -- ─────────────────────────────────────────
-INSERT INTO notifications (user_id, booking_id, message, type) VALUES
-(2, 1, 'Your booking for "Q1 Strategy Meeting" on Feb 20 has been confirmed.',            'booking_confirmed'),
-(3, 2, 'Your booking for "Marketing Campaign Review" on Feb 20 has been confirmed.',      'booking_confirmed'),
-(4, 3, 'Your booking for "HR Policy Discussion" on Feb 21 has been confirmed.',           'booking_confirmed'),
-(5, 4, 'Your booking for "Budget Planning" on Feb 21 has been confirmed.',                'booking_confirmed'),
-(2, 5, 'Reminder: "New Employee Training" is scheduled for Feb 24 at 9:00 AM.',          'reminder'),
-(3, 6, 'Your booking for "Client Presentation" is pending approval.',                    'general');
+-- Example: B-04 cancelled by David Brown
+INSERT INTO cancellation (cancel_id, booking_id, cancel_reason, cancel_date, cancel_fromdate, cancel_todate, cancel_fromtime, cancel_totime, cancelled_by_uid) VALUES
+('C-01', 'B-04', 'Schedule conflict with town hall meeting', '2026-02-20', '2026-02-21', '2026-02-21', '14:00:00', '16:00:00', 'U-05');

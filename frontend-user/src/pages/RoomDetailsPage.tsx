@@ -6,12 +6,10 @@ import {
     ChalkboardTeacher,
     ProjectorScreen,
     WifiHigh,
-    SpeakerHigh,
-    DownloadSimple,
-    Printer
+    SpeakerHigh
 } from '@phosphor-icons/react';
-import React, { useState } from 'react';
-import Footer from '../components/Footer';
+import React from 'react';
+
 
 interface RoomDetailsPageProps {
     onBack: () => void;

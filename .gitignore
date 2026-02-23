@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+frontend-user/node_modules/
+backend/node_modules/
+
+# Environment variables (never commit secrets!)
+backend/.env
+.env
+
+# Build output
+frontend-user/dist/
+frontend-admin/.next/
+frontend-admin/node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
