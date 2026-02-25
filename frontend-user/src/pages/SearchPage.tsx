@@ -257,7 +257,11 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
                                 </div>
                                 <button
                                     onClick={() => {
-                                        setSelectedRoomType(room);
+                                        if (_onViewRoom) {
+                                            _onViewRoom(room.catalog_id, room.id);
+                                        } else {
+                                            setSelectedRoomType(room);
+                                        }
                                     }}
                                     type="button"
                                     className="w-full bg-primary hover:bg-primary-dark text-white font-semibold py-2 rounded-lg transition-colors cursor-pointer"

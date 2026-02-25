@@ -50,6 +50,14 @@ const authHeaders = (): HeadersInit => ({
     ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
 });
 
+export const parseLocalDate = (dateStr: string): Date => {
+    if (!dateStr) return new Date();
+    const parts = dateStr.slice(0, 10).split('-');
+    if (parts.length !== 3) return new Date(dateStr);
+    const [year, month, day] = parts.map(Number);
+    return new Date(year, month - 1, day);
+};
+
 // ── Auth ───────────────────────────────────────────────────
 export const loginUser = async (email: string, password: string) => {
     const res = await fetch(`${API_URL}/auth/login`, {
@@ -132,10 +140,17 @@ export const fetchUserBookings = async (uid: string): Promise<Booking[]> => {
     return res.json();
 };
 
-export const cancelBooking = async (booking_id: string): Promise<{ message: string }> => {
-    const res = await fetch(`${API_URL}/bookings/${booking_id}`, {
-        method: 'DELETE',
+export const cancelBooking = async (booking_id: string, uid: string): Promise<{ message: string }> => {
+    const cancel_date = new Date().toISOString().slice(0, 10);
+    const res = await fetch(`${API_URL}/cancellations`, {
+        method: 'POST',
         headers: authHeaders(),
+        body: JSON.stringify({
+            booking_id,
+            cancelled_by_uid: uid,
+            cancel_date,
+            cancel_reason: 'User initialized cancellation'
+        }),
     });
     if (!res.ok) {
         const err = await res.json();

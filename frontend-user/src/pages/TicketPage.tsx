@@ -8,10 +8,10 @@ import {
     House
 } from '@phosphor-icons/react';
 import React from 'react';
-import { BookingResult } from '../App';
+import { Booking, parseLocalDate } from '../lib/api';
 
 interface TicketPageProps {
-    booking: BookingResult | null;
+    booking: Booking | any | null;
     onHome: () => void;
     onViewBookings: () => void;
 }
@@ -30,11 +30,15 @@ const TicketPage: React.FC<TicketPageProps> = ({ booking, onHome, onViewBookings
         <div className="max-w-2xl mx-auto py-12 px-6">
             {/* Success Header */}
             <div className="text-center mb-10">
-                <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 text-green-500 rounded-full mb-6 animate-bounce">
+                <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full mb-6 ${booking.status === 'confirmed' ? 'bg-green-100 text-green-500 animate-bounce' : 'bg-amber-100 text-amber-500 animate-pulse'}`}>
                     <CheckCircle size={48} weight="fill" />
                 </div>
-                <h1 className="text-3xl font-bold text-slate-900">Booking Confirmed!</h1>
-                <p className="text-slate-500 mt-2">Your conference room has been reserved successfully</p>
+                <h1 className="text-3xl font-bold text-slate-900">
+                    {booking.status === 'confirmed' ? 'Booking Confirmed!' : 'Booking Pending'}
+                </h1>
+                <p className="text-slate-500 mt-2">
+                    {booking.status === 'confirmed' ? 'Your conference room has been reserved successfully' : 'Your conference room request is awaiting admin approval'}
+                </p>
             </div>
 
             {/* Ticket Card */}
@@ -46,8 +50,11 @@ const TicketPage: React.FC<TicketPageProps> = ({ booking, onHome, onViewBookings
                             <h2 className="text-xl font-bold">{booking.room_name}</h2>
                             <p className="text-white/80 text-sm mt-1">{booking.location}</p>
                         </div>
-                        <span className="bg-white/20 text-white px-3 py-1 text-xs rounded-full font-semibold backdrop-blur-sm">
-                            Pending Approval
+                        <span className={`px-3 py-1 text-xs rounded-full font-semibold backdrop-blur-sm ${booking.status === 'confirmed'
+                            ? 'bg-green-500/20 text-white border border-green-400/30'
+                            : 'bg-white/20 text-white'
+                            }`}>
+                            {booking.status === 'confirmed' ? 'Confirmed' : 'Pending Approval'}
                         </span>
                     </div>
                 </div>
@@ -65,14 +72,18 @@ const TicketPage: React.FC<TicketPageProps> = ({ booking, onHome, onViewBookings
                             <CalendarBlank size={20} className="text-primary mt-0.5" />
                             <div>
                                 <p className="text-xs text-slate-400 uppercase font-bold tracking-wider">Date</p>
-                                <p className="text-slate-900 font-semibold">{new Date(booking.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                                <p className="text-slate-900 font-semibold">
+                                    {parseLocalDate((booking.date || booking.start_date || '').slice(0, 10)).toLocaleDateString('en-US', {
+                                        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+                                    })}
+                                </p>
                             </div>
                         </div>
                         <div className="flex items-start gap-3">
                             <Clock size={20} className="text-primary mt-0.5" />
                             <div>
                                 <p className="text-xs text-slate-400 uppercase font-bold tracking-wider">Time</p>
-                                <p className="text-slate-900 font-semibold">{booking.start_time} – {booking.end_time}</p>
+                                <p className="text-slate-900 font-semibold">{booking.start_time?.slice(0, 5)} – {booking.end_time?.slice(0, 5)}</p>
                             </div>
                         </div>
                         <div className="flex items-start gap-3">
@@ -91,10 +102,21 @@ const TicketPage: React.FC<TicketPageProps> = ({ booking, onHome, onViewBookings
                         </div>
                     </div>
 
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50/50 rounded-xl p-6 border border-slate-100 mb-6">
+                        <div>
+                            <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest mb-1">Booked By</p>
+                            <p className="text-slate-900 font-bold">{booking.user_name || 'Regular User'}</p>
+                        </div>
+                        <div>
+                            <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest mb-1">Email Address</p>
+                            <p className="text-slate-600 font-medium text-sm">{booking.email || 'user@iem.edu.in'}</p>
+                        </div>
+                    </div>
+
                     {booking.purpose && (
-                        <div className="bg-slate-50 rounded-xl p-4 mb-6">
-                            <p className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-1">Purpose</p>
-                            <p className="text-slate-700">{booking.purpose}</p>
+                        <div className="bg-primary/5 rounded-xl p-5 mb-6 border-l-4 border-primary">
+                            <p className="text-[10px] text-primary uppercase font-bold tracking-widest mb-2">Meeting Purpose</p>
+                            <p className="text-slate-700 leading-relaxed text-sm italic">"{booking.purpose}"</p>
                         </div>
                     )}
 

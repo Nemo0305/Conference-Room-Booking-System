@@ -18,7 +18,11 @@ export function PendingApprovals() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    const interval = setInterval(load, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleAction = async (id: string, status: 'confirmed' | 'rejected') => {
     try {

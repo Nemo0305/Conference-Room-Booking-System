@@ -24,7 +24,11 @@ export default function ApprovalsPage() {
     }
   };
 
-  useEffect(() => { loadPending(); }, []);
+  useEffect(() => {
+    loadPending();
+    const interval = setInterval(loadPending, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleAction = async (booking_id: string, status: 'confirmed' | 'rejected') => {
     setActionLoading(booking_id);

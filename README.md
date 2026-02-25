@@ -92,10 +92,19 @@ npm run dev
 ```bash
 cd frontend-admin
 npm install
-npm run dev
+npm run dev -- -p 3001
 ```
 
-> Runs on `http://localhost:3000`
+> Runs on `http://localhost:3001`
+
+---
+
+## 🔑 Login Credentials
+
+| Panel | Email | Password |
+| :--- | :--- | :--- |
+| **Admin Panel** | `admin@iem.edu.in` | `admin123` |
+| **User Panel** | `user@iem.edu.in` | `user123` |
 
 ---
 

@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Eye, Trash2 } from 'lucide-react';
-import { fetchAllBookings, deleteBooking, Booking } from '@/lib/api';
+import { fetchAllBookings, cancelBooking, Booking, getAdminUser } from '@/lib/api';
 import Link from 'next/link';
 
 export function RecentBookings() {
@@ -19,13 +19,24 @@ export function RecentBookings() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    const interval = setInterval(load, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this booking?')) return;
+  const handleDelete = async (id: string, currentStatus: string) => {
+    if (currentStatus === 'cancelled' || currentStatus === 'rejected') {
+      alert('This booking is already cancelled or rejected.');
+      return;
+    }
+    const adminUser = getAdminUser();
+    if (!adminUser) return;
+
+    if (!confirm('Cancel this booking?')) return;
     try {
-      await deleteBooking(id);
-      setBookings(prev => prev.filter(b => b.booking_id !== id));
+      await cancelBooking(id, adminUser.uid, 'Cancelled by Admin');
+      setBookings(prev => prev.map(b => b.booking_id === id ? { ...b, status: 'cancelled' } : b));
     } catch (e: any) {
       alert(e.message);
     }
@@ -87,7 +98,7 @@ export function RecentBookings() {
                       variant="ghost"
                       size="sm"
                       className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                      onClick={() => handleDelete(booking.booking_id)}
+                      onClick={() => handleDelete(booking.booking_id, booking.status)}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>

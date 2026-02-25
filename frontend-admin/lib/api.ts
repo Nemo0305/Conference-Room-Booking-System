@@ -160,6 +160,25 @@ export const deleteBooking = async (booking_id: string): Promise<{ message: stri
     return res.json();
 };
 
+export const cancelBooking = async (booking_id: string, uid: string, reason: string = 'Admin cancelled booking'): Promise<{ message: string }> => {
+    const cancel_date = new Date().toISOString().slice(0, 10);
+    const res = await fetch(`${API_URL}/cancellations`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+            booking_id,
+            cancelled_by_uid: uid,
+            cancel_date,
+            cancel_reason: reason
+        }),
+    });
+    if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to cancel booking');
+    }
+    return res.json();
+};
+
 // ── Users ──────────────────────────────────────────────────
 export const fetchAllUsers = async (): Promise<User[]> => {
     const res = await fetch(`${API_URL}/users`, { headers: authHeaders() });

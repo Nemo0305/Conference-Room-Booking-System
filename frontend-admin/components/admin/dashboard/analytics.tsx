@@ -25,13 +25,19 @@ export function DashboardAnalytics() {
   }>({ bookings: [], users: [], rooms: [] });
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const load = () => {
     Promise.all([fetchAllBookings(), fetchAllUsers(), fetchRooms()])
       .then(([bookings, users, rooms]) => {
         setData({ bookings, users, rooms });
       })
       .catch(console.error)
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    load();
+    const interval = setInterval(load, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   const totalBookings = data.bookings.length;

@@ -1,13 +1,26 @@
 "use client";
 
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Bell, LogOut, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export function TopBar() {
   const router = useRouter();
-  const userStr = typeof window !== 'undefined' ? localStorage.getItem('admin_user') : null;
-  const user = userStr ? JSON.parse(userStr) : null;
+  const [mounted, setMounted] = useState(false);
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    setMounted(true);
+    const userStr = localStorage.getItem('admin_user');
+    if (userStr) {
+      try {
+        setUser(JSON.parse(userStr));
+      } catch (e) {
+        console.error('Failed to parse admin_user', e);
+      }
+    }
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('admin_token');
@@ -26,7 +39,9 @@ export function TopBar() {
           <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
             <User className="w-4 h-4 text-primary" />
           </div>
-          <span className="text-sm font-medium text-foreground">{user?.name || 'Admin'}</span>
+          <span className="text-sm font-medium text-foreground">
+            {mounted ? (user?.name || 'Admin') : 'Admin'}
+          </span>
         </div>
 
         <button className="p-2 hover:bg-muted rounded-lg transition-colors">

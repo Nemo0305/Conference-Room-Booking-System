@@ -24,7 +24,7 @@ export default function SettingsPage() {
             <label className="text-sm font-semibold text-foreground">Organization Name</label>
             <input
               type="text"
-              value="Acme Corporation"
+              defaultValue="Acme Corporation"
               className="w-full mt-2 px-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
@@ -33,7 +33,7 @@ export default function SettingsPage() {
             <label className="text-sm font-semibold text-foreground">Admin Email</label>
             <input
               type="email"
-              value="admin@company.com"
+              defaultValue="admin@company.com"
               className="w-full mt-2 px-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
@@ -70,7 +70,7 @@ export default function SettingsPage() {
             <label className="text-sm font-semibold text-foreground">Default Booking Duration (minutes)</label>
             <input
               type="number"
-              value="60"
+              defaultValue="60"
               className="w-full mt-2 px-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
@@ -79,7 +79,7 @@ export default function SettingsPage() {
             <label className="text-sm font-semibold text-foreground">Minimum Advance Booking (hours)</label>
             <input
               type="number"
-              value="1"
+              defaultValue="1"
               className="w-full mt-2 px-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
@@ -88,7 +88,7 @@ export default function SettingsPage() {
             <label className="text-sm font-semibold text-foreground">Maximum Booking Duration (hours)</label>
             <input
               type="number"
-              value="4"
+              defaultValue="4"
               className="w-full mt-2 px-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>

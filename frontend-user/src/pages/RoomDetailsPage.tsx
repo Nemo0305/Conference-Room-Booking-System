@@ -74,6 +74,8 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
                     start_time: startTime,
                     end_time: endTime,
                     purpose,
+                    user_name: user.name,
+                    email: user.email,
                 });
             }, 800);
         } catch (err: any) {

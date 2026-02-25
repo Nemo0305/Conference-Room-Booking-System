@@ -28,6 +28,8 @@ export interface BookingResult {
     start_time: string;
     end_time: string;
     purpose: string;
+    user_name?: string;
+    email?: string;
 }
 
 function App() {
@@ -97,9 +99,9 @@ function App() {
             case 'calendar':
                 return <CalendarPage onPreviewTicket={() => navigateTo('ticket')} />;
             case 'my-bookings':
-                return <MyBookingsPage onBrowse={() => navigateTo('search')} />;
+                return <MyBookingsPage onBrowse={() => navigateTo('search')} onViewTicket={navigateToTicket} />;
             case 'help':
-                return <HelpCenterPage />;
+                return <HelpCenterPage onNavigate={navigateTo} onAlert={(msg, type) => alert(`[${type}] ${msg}`)} />;
             case 'profile':
                 return <ProfilePage />;
             default:

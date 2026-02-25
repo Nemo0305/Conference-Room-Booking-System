@@ -147,13 +147,23 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
     const [selectedLocation, setSelectedLocation] = useState<string>('All Locations');
     const [selectedTimeFilter, setSelectedTimeFilter] = useState<string>('All Time Slots');
 
-    // Calendar Logic
-    const getDaysInMonth = (date: Date) => {
-        return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+    // Calendar Helpers
+    const getDaysInMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+    const getFirstDayOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+
+    const isPastDate = (dateStr: string) => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const targetDate = new Date(dateStr);
+        targetDate.setHours(0, 0, 0, 0);
+        return targetDate < today;
     };
 
-    const getFirstDayOfMonth = (date: Date) => {
-        return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+    const isPastDateTime = (dateStr: string, hour: number) => {
+        const now = new Date();
+        const targetDate = new Date(dateStr);
+        targetDate.setHours(hour, 0, 0, 0);
+        return targetDate < now;
     };
 
     const formatDate = (year: number, month: number, day: number) => {
@@ -522,6 +532,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
                                 const status = getDateStatus(dateStr);
                                 const dayBookings = getBookingsForDate(dateStr);
                                 const isSelected = selectedDates.includes(dateStr);
+                                const isPast = isPastDate(dateStr);
                                 void isSelected; // suppress unused-var warning — used in future interactions
 
                                 const statusColors = {
@@ -533,8 +544,9 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
                                 return (
                                     <div
                                         key={day}
-                                        className="relative group"
+                                        className={`relative ${isPast ? '' : 'group'} `}
                                         onMouseEnter={() => {
+                                            if (isPast) return;
                                             if (dayBookings.length > 0) setHoveredBooking(dayBookings[0]);
                                             setHoveredDate(dateStr);
                                             setActiveDateOptions(dateStr);
@@ -548,21 +560,23 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
                                     >
                                         <div
                                             onClick={() => {
+                                                if (isPast) return;
                                                 if (status === 'available') {
                                                     setShowBookPopup(dateStr);
                                                 } else {
-                                                    handleDateClick(day);
+                                                    setDetailDate(dateStr);
+                                                    setIsDetailOpen(true);
                                                 }
                                             }}
                                             className={`
-                                        aspect-[4/3] rounded-xl border-2 flex flex-col p-3 cursor-pointer transition-all
-                                        ${statusColors[status]}
+                                        aspect-[4/3] rounded-xl border-2 flex flex-col p-3 transition-all
+                                        ${isPast ? 'bg-slate-100/50 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed' : `${statusColors[status]} cursor-pointer`}
                                     `}
                                         >
-                                            <span className="font-semibold text-slate-800">{day}</span>
+                                            <span className={`font-semibold ${isPast ? 'text-slate-400' : 'text-slate-800'}`}>{day}</span>
                                             {dayBookings.length > 0 && (
                                                 <div className="mt-1">
-                                                    <span className="text-xs text-slate-600 block">
+                                                    <span className={`text-xs block ${isPast ? 'text-slate-400' : 'text-slate-600'}`}>
                                                         {dayBookings[0].room.split(' ')[0]}
                                                     </span>
                                                     {dayBookings[0].timeSlot && (
@@ -573,7 +587,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
                                         </div>
 
                                         {/* Hover Tooltip for Booked/Pending */}
-                                        {hoveredBooking && hoveredDate === dateStr && (dayBookings.length > 0) && (
+                                        {hoveredBooking && hoveredDate === dateStr && (dayBookings.length > 0) && !isPast && (
                                             <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 bg-slate-900 text-white px-4 py-3 rounded-lg shadow-lg z-20 whitespace-nowrap pointer-events-none">
                                                 <p className="font-semibold text-sm">{hoveredBooking.room}</p>
                                                 <p className="text-xs text-slate-300">Booked by: {hoveredBooking.bookedBy}</p>
@@ -591,7 +605,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
                                         )}
 
                                         {/* Options overlay on hover/click */}
-                                        {activeDateOptions === dateStr && (
+                                        {activeDateOptions === dateStr && !isPast && (
                                             <div className="absolute top-3 right-3 z-30 flex flex-col gap-2">
                                                 <button
                                                     onClick={(e) => {
@@ -673,17 +687,19 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
                                             const dayBookings = getBookingsForDate(dateStr);
                                             const hasBooking = dayBookings.length > 0;
                                             const status = getDateStatus(dateStr);
+                                            const isPastHour = isPastDateTime(dateStr, hour);
 
                                             return (
                                                 <div
                                                     key={`${dateStr}-${i}`}
-                                                    className={`flex-1 p-3 border-r border-slate-200 last:border-r-0 min-h-16 cursor-pointer transition-colors ${hasBooking
+                                                    className={`flex-1 p-3 border-r border-slate-200 last:border-r-0 min-h-16 transition-colors ${isPastHour ? 'bg-slate-100/50 cursor-not-allowed opacity-60' : hasBooking
                                                         ? status === 'booked'
-                                                            ? 'bg-green-100/50 hover:bg-green-100'
-                                                            : 'bg-yellow-100/50 hover:bg-yellow-100'
-                                                        : 'bg-blue-100/30 hover:bg-blue-100/60'
+                                                            ? 'bg-green-100/50 hover:bg-green-100 cursor-pointer'
+                                                            : 'bg-yellow-100/50 hover:bg-yellow-100 cursor-pointer'
+                                                        : 'bg-blue-100/30 hover:bg-blue-100/60 cursor-pointer'
                                                         }`}
                                                     onMouseEnter={() => {
+                                                        if (isPastHour) return;
                                                         if (hasBooking) setHoveredBooking(dayBookings[0]);
                                                         setHoveredDate(dateStr);
                                                     }}
@@ -692,8 +708,12 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
                                                         setHoveredDate(null);
                                                     }}
                                                     onClick={() => {
+                                                        if (isPastHour) return;
                                                         if (!hasBooking) {
                                                             setShowBookPopup(dateStr);
+                                                        } else {
+                                                            setDetailDate(dateStr);
+                                                            setIsDetailOpen(true);
                                                         }
                                                     }}
                                                 >
@@ -971,6 +991,6 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
             )}
         </div>
     );
-};
+}
 
 export default CalendarPage;

@@ -7,7 +7,8 @@ const pool = mysql.createPool({
     database: process.env.DB_NAME || 'conference_system',
     waitForConnections: true,
     connectionLimit: 10,
-    queueLimit: 0
+    queueLimit: 0,
+    dateStrings: true // Return dates as strings to avoid timezone shifts
 });
 
 module.exports = pool.promise();

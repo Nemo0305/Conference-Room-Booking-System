@@ -32,21 +32,25 @@ router.get('/', authMiddleware, adminOnly, async (req, res) => {
 // GET /api/bookings/user/:uid — bookings for a specific user (protected)
 router.get('/user/:uid', authMiddleware, async (req, res) => {
     const { uid } = req.params;
+    console.log(`[BOOKING] Fetching bookings for user: ${uid}`);
     // Users can only fetch their own bookings; admins can fetch any
     if (req.user.userrole_id !== 'admin' && req.user.uid !== uid) {
+        console.warn(`[BOOKING] Access denied for user ${req.user.uid} requesting ${uid}`);
         return res.status(403).json({ error: 'Access denied.' });
     }
     try {
         const [rows] = await db.query(`
-            SELECT b.*, c.room_name, c.location, c.floor_no
+            SELECT b.*, c.room_name, c.location, c.floor_no, u.name AS user_name, u.email
             FROM booking b
             JOIN conference_catalog c ON b.catalog_id = c.catalog_id AND b.room_id = c.room_id
+            JOIN users u ON b.uid = u.uid
             WHERE b.uid = ?
             ORDER BY b.start_date DESC, b.start_time DESC
         `, [uid]);
+        console.log(`[BOOKING] Found ${rows.length} bookings for user ${uid}`);
         res.json(rows);
     } catch (error) {
-        console.error('Error fetching user bookings:', error);
+        console.error('[BOOKING] Error fetching user bookings:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
@@ -55,12 +59,16 @@ router.get('/user/:uid', authMiddleware, async (req, res) => {
 router.post('/', authMiddleware, async (req, res) => {
     const { uid, catalog_id, room_id, start_date, end_date, start_time, end_time, purpose } = req.body;
 
+    console.log('[BOOKING] New booking attempt:', { uid, catalog_id, room_id, start_date, end_date, start_time, end_time });
+
     if (!uid || !catalog_id || !room_id || !start_date || !end_date || !start_time || !end_time) {
+        console.warn('[BOOKING] Missing fields:', req.body);
         return res.status(400).json({ error: 'Missing required fields.' });
     }
 
     // Users can only book for themselves
     if (req.user.userrole_id !== 'admin' && req.user.uid !== uid) {
+        console.error('[BOOKING] UID mismatch:', { tokenUid: req.user.uid, bodyUid: uid });
         return res.status(403).json({ error: 'Access denied.' });
     }
 
@@ -75,17 +83,27 @@ router.post('/', authMiddleware, async (req, res) => {
         `, [catalog_id, room_id, end_date, start_date, end_time, start_time]);
 
         if (conflicts.length > 0) {
+            console.warn('[BOOKING] Conflict detected:', conflicts);
             return res.status(409).json({ error: 'Room is already booked for this time slot.' });
         }
 
         const booking_id = await getNextBookingId();
-        await db.query(
+        const [result] = await db.query(
             'INSERT INTO booking (booking_id, uid, catalog_id, room_id, start_date, end_date, start_time, end_time, purpose, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [booking_id, uid, catalog_id, room_id, start_date, end_date, start_time, end_time, purpose || '', 'pending']
         );
-        res.status(201).json({ message: 'Booking created successfully.', booking_id });
+
+        // Also create a ticket entry
+        const ticket_id = `T-${booking_id.split('-')[1]}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+        await db.query(
+            'INSERT INTO ticket_details (ticket_id, booking_id, uid) VALUES (?, ?, ?)',
+            [ticket_id, booking_id, uid]
+        );
+
+        console.log('[BOOKING] Successfully inserted booking and ticket:', { booking_id, ticket_id });
+        res.status(201).json({ message: 'Booking created successfully.', booking_id, ticket_id });
     } catch (error) {
-        console.error('Error creating booking:', error);
+        console.error('[BOOKING] Error:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });

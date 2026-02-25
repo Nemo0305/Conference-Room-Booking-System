@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Search, Download, Trash2 } from 'lucide-react';
-import { fetchAllBookings, deleteBooking, Booking } from '@/lib/api';
+import { fetchAllBookings, cancelBooking, Booking, getAdminUser } from '@/lib/api';
 
 export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -25,13 +25,24 @@ export default function BookingsPage() {
     }
   };
 
-  useEffect(() => { loadBookings(); }, []);
+  useEffect(() => {
+    loadBookings();
+    const interval = setInterval(loadBookings, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this booking?')) return;
+  const handleDelete = async (id: string, currentStatus: string) => {
+    if (currentStatus === 'cancelled' || currentStatus === 'rejected') {
+      alert('This booking is already cancelled or rejected.');
+      return;
+    }
+    const adminUser = getAdminUser();
+    if (!adminUser) return;
+
+    if (!confirm('Cancel this booking?')) return;
     try {
-      await deleteBooking(id);
-      setBookings(prev => prev.filter(b => b.booking_id !== id));
+      await cancelBooking(id, adminUser.uid, 'Cancelled by Admin');
+      setBookings(prev => prev.map(b => b.booking_id === id ? { ...b, status: 'cancelled' } : b));
     } catch (e: any) {
       alert(e.message);
     }
@@ -169,7 +180,7 @@ export default function BookingsPage() {
                       variant="ghost"
                       size="sm"
                       className="text-destructive hover:text-destructive"
-                      onClick={() => handleDelete(b.booking_id)}
+                      onClick={() => handleDelete(b.booking_id, b.status)}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
