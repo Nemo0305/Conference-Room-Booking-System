@@ -126,9 +126,15 @@ const LoginPage: React.FC<LoginPageProps> = ({ onSuccess, isModal, onClose }) =>
                     >
                         {loading ? 'Signing in...' : 'Sign In'}
                     </button>
-                    <p className="text-xs text-center text-slate-500 mt-2">
-                        Demo: user@iem.edu.in / user123
-                    </p>
+                    <div className="mt-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                        <p className="text-xs font-semibold text-slate-500 mb-2">Demo Credentials</p>
+                        <p className="text-xs text-slate-500">
+                            Email: <span className="text-slate-800 font-mono">alice@company.com</span>
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">
+                            Password: <span className="text-slate-800 font-mono">password123</span>
+                        </p>
+                    </div>
                 </form>
             ) : (
                 <form onSubmit={handleRegister} className="space-y-3">

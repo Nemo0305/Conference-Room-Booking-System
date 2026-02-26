@@ -113,10 +113,10 @@ export default function LoginPage() {
           <div className="mt-6 p-4 bg-muted rounded-lg border border-border">
             <p className="text-xs font-semibold text-muted-foreground mb-2">Demo Credentials</p>
             <p className="text-xs text-muted-foreground">
-              Email: <span className="text-foreground font-mono">admin@iem.edu.in</span>
+              Email: <span className="text-foreground font-mono">admin@company.com</span>
             </p>
             <p className="text-xs text-muted-foreground">
-              Password: <span className="text-foreground font-mono">admin123</span>
+              Password: <span className="text-foreground font-mono">password123</span>
             </p>
             <p className="text-xs text-orange-500 mt-1">* Must have admin role to access</p>
           </div>
