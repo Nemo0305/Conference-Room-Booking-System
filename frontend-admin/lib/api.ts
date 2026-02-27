@@ -42,11 +42,17 @@ export interface User {
 }
 
 export interface Cancellation {
-    cancellation_id: string;
+    cancel_id: string;
     booking_id: string;
     uid: string;
-    reason: string;
-    cancelled_at: string;
+    cancel_reason: string;
+    cancel_date: string;
+    cancel_fromdate?: string;
+    cancel_todate?: string;
+    cancel_fromtime?: string;
+    cancel_totime?: string;
+    cancelled_by_uid: string;
+    cancelled_by_name?: string;
     user_name?: string;
     room_name?: string;
 }

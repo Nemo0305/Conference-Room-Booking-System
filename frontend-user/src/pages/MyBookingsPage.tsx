@@ -69,6 +69,45 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ onBrowse, onViewTicket 
     const [showDatePopup, setShowDatePopup] = useState<string | null>(null);
     const [currentDate, setCurrentDate] = useState(new Date());
 
+    // Cancel Modal state
+    const [cancelModal, setCancelModal] = useState<{ open: boolean; booking: Booking | null }>({
+        open: false, booking: null
+    });
+    const [cancelReason, setCancelReason] = useState('');
+    const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
+
+    // Generate 1-hour time slots from a booking's start_time to end_time
+    const getTimeSlots = (startTime: string, endTime: string): string[] => {
+        const slots: string[] = [];
+        const startH = parseInt(startTime.slice(0, 2));
+        const endH = parseInt(endTime.slice(0, 2));
+        for (let h = startH; h < endH; h++) {
+            const from = `${String(h).padStart(2, '0')}:00:00`;
+            const to = `${String(h + 1).padStart(2, '0')}:00:00`;
+            slots.push(`${from}-${to}`);
+        }
+        return slots;
+    };
+
+    const openCancelModal = (booking: Booking) => {
+        setCancelModal({ open: true, booking });
+        setCancelReason('');
+        const slots = getTimeSlots(booking.start_time, booking.end_time);
+        setSelectedSlots(slots); // default: all selected
+    };
+
+    const closeCancelModal = () => {
+        setCancelModal({ open: false, booking: null });
+        setCancelReason('');
+        setSelectedSlots([]);
+    };
+
+    const toggleSlot = (slot: string) => {
+        setSelectedSlots(prev =>
+            prev.includes(slot) ? prev.filter(s => s !== slot) : [...prev, slot]
+        );
+    };
+
     const user = getCurrentUser();
 
     const load = async (isInitial = false) => {
@@ -162,16 +201,56 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ onBrowse, onViewTicket 
         return targetDate < today;
     };
 
-    const handleCancel = async (booking_id: string) => {
+    const submitCancel = async () => {
         const user = getCurrentUser();
-        if (!user) return;
+        const booking = cancelModal.booking;
+        if (!user || !booking) return;
+        if (!cancelReason.trim()) {
+            notify('Please provide a cancellation reason', 'error');
+            return;
+        }
+        if (selectedSlots.length === 0) {
+            notify('Please select at least one time slot to cancel', 'error');
+            return;
+        }
 
-        notify('Processing cancellation request...', 'info');
-        setCancellingId(booking_id);
+        const allSlots = getTimeSlots(booking.start_time, booking.end_time);
+        const isFullCancel = selectedSlots.length === allSlots.length;
+
+        // Build individual slot objects for the backend
+        const slotsToCancel = selectedSlots.map(s => {
+            const [from, to] = s.split('-');
+            return { from, to };
+        });
+
+        // Sort to get overall range for the cancellation record
+        const sorted = [...selectedSlots].sort();
+        const cancelFromtime = sorted[0].split('-')[0];
+        const cancelTotime = sorted[sorted.length - 1].split('-')[1];
+
+        notify('Processing cancellation...', 'info');
+        setCancellingId(booking.booking_id);
         try {
-            await cancelBooking(booking_id, user.uid);
-            setBookings(prev => prev.map(b => b.booking_id === booking_id ? { ...b, status: 'cancelled' } : b));
-            notify('Booking cancelled successfully', 'success');
+            await cancelBooking(booking.booking_id, user.uid, booking, {
+                reason: cancelReason,
+                cancel_fromtime: cancelFromtime,
+                cancel_totime: cancelTotime,
+                partial: !isFullCancel,
+                slots: slotsToCancel,
+            });
+
+            // Always reload bookings from server to get accurate state
+            const updatedBookings = await fetchUserBookings(user.uid);
+            setBookings(updatedBookings);
+
+            if (isFullCancel) {
+                notify('Booking cancelled successfully', 'success');
+            } else {
+                const cancelledCount = selectedSlots.length;
+                const keptCount = allSlots.length - cancelledCount;
+                notify(`Cancelled ${cancelledCount} slot(s). ${keptCount} remaining slot(s) still active.`, 'success');
+            }
+            closeCancelModal();
         } catch (e: any) {
             notify(e.message, 'error');
         } finally {
@@ -336,23 +415,23 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ onBrowse, onViewTicket 
                                     </div>
 
                                     <div className="flex flex-col md:flex-row items-center gap-4">
+                                        {booking.status === 'confirmed' && (
+                                            <button
+                                                onClick={() => onViewTicket && onViewTicket(booking)}
+                                                className="w-full md:flex-1 bg-slate-900 hover:bg-black text-white py-5 rounded-[1.25rem] text-xs font-black uppercase tracking-widest transition-all active:scale-[0.98] shadow-2xl shadow-slate-900/20 flex items-center justify-center gap-2"
+                                            >
+                                                <Check size={18} weight="bold" />
+                                                Access Ticket
+                                            </button>
+                                        )}
                                         {(booking.status === 'pending' || booking.status === 'confirmed') && (
-                                            <>
-                                                <button
-                                                    onClick={() => onViewTicket && onViewTicket(booking)}
-                                                    className="w-full md:flex-1 bg-slate-900 hover:bg-black text-white py-5 rounded-[1.25rem] text-xs font-black uppercase tracking-widest transition-all active:scale-[0.98] shadow-2xl shadow-slate-900/20 flex items-center justify-center gap-2"
-                                                >
-                                                    <Check size={18} weight="bold" />
-                                                    Access Ticket
-                                                </button>
-                                                <button
-                                                    onClick={() => handleCancel(booking.booking_id)}
-                                                    disabled={cancellingId === booking.booking_id}
-                                                    className="w-full md:w-auto px-8 bg-slate-50 hover:bg-rose-50 hover:text-rose-500 py-5 rounded-[1.25rem] text-xs font-black uppercase tracking-widest transition-all disabled:opacity-50 text-slate-400 border border-transparent hover:border-rose-100"
-                                                >
-                                                    {cancellingId === booking.booking_id ? 'Wait...' : 'Cancel'}
-                                                </button>
-                                            </>
+                                            <button
+                                                onClick={() => openCancelModal(booking)}
+                                                disabled={cancellingId === booking.booking_id}
+                                                className="w-full md:w-auto px-8 bg-slate-50 hover:bg-rose-50 hover:text-rose-500 py-5 rounded-[1.25rem] text-xs font-black uppercase tracking-widest transition-all disabled:opacity-50 text-slate-400 border border-transparent hover:border-rose-100"
+                                            >
+                                                {cancellingId === booking.booking_id ? 'Wait...' : 'Cancel'}
+                                            </button>
                                         )}
                                         {booking.status === 'cancelled' && (
                                             <div className="w-full bg-slate-50 flex items-center gap-3 p-5 rounded-[1.25rem] border border-slate-100">
@@ -501,98 +580,200 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ onBrowse, onViewTicket 
             </div>
 
             {/* Date Details Modal Popup */}
-            {showDatePopup && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-                    {/* Backdrop */}
-                    <div
-                        className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm cursor-pointer transition-opacity"
-                        onClick={() => setShowDatePopup(null)}
-                    />
+            {
+                showDatePopup && (
+                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+                        {/* Backdrop */}
+                        <div
+                            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm cursor-pointer transition-opacity"
+                            onClick={() => setShowDatePopup(null)}
+                        />
 
-                    {/* Modal Dialog */}
-                    <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg relative z-10 overflow-hidden flex flex-col max-h-[90vh]">
-                        {/* Header */}
-                        <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 sticky top-0">
-                            <div>
-                                <h3 className="text-xl font-black text-slate-800 tracking-tight">
-                                    {new Date(showDatePopup).toLocaleDateString('en-US', {
-                                        weekday: 'long',
-                                        month: 'long',
-                                        day: 'numeric'
-                                    })}
-                                </h3>
-                                <p className="text-sm font-semibold text-slate-500 mt-1">
-                                    {bookings.filter(b => b.start_date.slice(0, 10) === showDatePopup).length} Bookings found
-                                </p>
+                        {/* Modal Dialog */}
+                        <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg relative z-10 overflow-hidden flex flex-col max-h-[90vh]">
+                            {/* Header */}
+                            <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 sticky top-0">
+                                <div>
+                                    <h3 className="text-xl font-black text-slate-800 tracking-tight">
+                                        {new Date(showDatePopup).toLocaleDateString('en-US', {
+                                            weekday: 'long',
+                                            month: 'long',
+                                            day: 'numeric'
+                                        })}
+                                    </h3>
+                                    <p className="text-sm font-semibold text-slate-500 mt-1">
+                                        {bookings.filter(b => b.start_date.slice(0, 10) === showDatePopup).length} Bookings found
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setShowDatePopup(null)}
+                                    className="p-2.5 hover:bg-white rounded-xl transition-all shadow-sm text-slate-400 hover:text-slate-700 border border-slate-200"
+                                >
+                                    <X size={20} weight="bold" />
+                                </button>
                             </div>
-                            <button
-                                onClick={() => setShowDatePopup(null)}
-                                className="p-2.5 hover:bg-white rounded-xl transition-all shadow-sm text-slate-400 hover:text-slate-700 border border-slate-200"
-                            >
-                                <X size={20} weight="bold" />
-                            </button>
-                        </div>
 
-                        {/* Content Details */}
-                        <div className="p-8 overflow-y-auto space-y-4 bg-slate-50/50">
-                            {bookings
-                                .filter(b => b.start_date.slice(0, 10) === showDatePopup)
-                                .map(booking => (
-                                    <div key={booking.booking_id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                                        <div className="flex justify-between items-start mb-4">
-                                            <h4 className="font-bold text-slate-800 text-lg">{booking.room_name || `Room ${booking.room_id}`}</h4>
-                                            <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider
+                            {/* Content Details */}
+                            <div className="p-8 overflow-y-auto space-y-4 bg-slate-50/50">
+                                {bookings
+                                    .filter(b => b.start_date.slice(0, 10) === showDatePopup)
+                                    .map(booking => (
+                                        <div key={booking.booking_id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                                            <div className="flex justify-between items-start mb-4">
+                                                <h4 className="font-bold text-slate-800 text-lg">{booking.room_name || `Room ${booking.room_id}`}</h4>
+                                                <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider
                                                     ${booking.status === 'confirmed' ? 'bg-emerald-100 text-emerald-600' :
-                                                    booking.status === 'pending' ? 'bg-amber-100 text-amber-600' :
-                                                        'bg-rose-100 text-rose-600'}
+                                                        booking.status === 'pending' ? 'bg-amber-100 text-amber-600' :
+                                                            'bg-rose-100 text-rose-600'}
                                                 `}>
-                                                {booking.status}
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-3">
-                                            <div className="flex items-center gap-3 text-slate-600 text-sm font-medium">
-                                                <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400">
-                                                    <Clock size={16} weight="bold" />
+                                                    {booking.status}
                                                 </div>
-                                                <span>{booking.start_time} - {booking.end_time}</span>
                                             </div>
-                                            <div className="flex items-center gap-3 text-slate-600 text-sm font-medium">
-                                                <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400">
-                                                    <Users size={16} weight="bold" />
-                                                </div>
-                                                <span className="capitalize">{booking.purpose || 'Team Meeting'}</span>
-                                            </div>
-                                        </div>
 
-                                        {booking.status !== 'cancelled' && booking.status !== 'rejected' && (
-                                            <button
-                                                onClick={() => {
-                                                    const user = getCurrentUser();
-                                                    if (!user) return;
-                                                    if (!confirm('Are you sure you want to cancel this booking?')) return;
-                                                    setShowDatePopup(null);
-                                                    cancelBooking(booking.booking_id, user.uid)
-                                                        .then(() => {
-                                                            setBookings(prev => prev.map(b => b.booking_id === booking.booking_id ? { ...b, status: 'cancelled' } : b));
-                                                            setNotifications(prev => [...prev, { id: Date.now().toString(), message: 'Booking Cancelled', type: 'success' }]);
-                                                        }).catch(e => {
-                                                            setNotifications(prev => [...prev, { id: Date.now().toString(), message: e.message, type: 'error' }]);
-                                                        });
-                                                }}
-                                                className="w-full mt-5 py-3 rounded-xl border-2 border-rose-100 text-rose-500 font-bold text-sm hover:bg-rose-50 transition-colors"
-                                            >
-                                                Cancel Reservation
-                                            </button>
-                                        )}
-                                    </div>
-                                ))}
+                                            <div className="space-y-3">
+                                                <div className="flex items-center gap-3 text-slate-600 text-sm font-medium">
+                                                    <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400">
+                                                        <Clock size={16} weight="bold" />
+                                                    </div>
+                                                    <span>{booking.start_time} - {booking.end_time}</span>
+                                                </div>
+                                                <div className="flex items-center gap-3 text-slate-600 text-sm font-medium">
+                                                    <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400">
+                                                        <Users size={16} weight="bold" />
+                                                    </div>
+                                                    <span className="capitalize">{booking.purpose || 'Team Meeting'}</span>
+                                                </div>
+                                            </div>
+
+                                            {booking.status !== 'cancelled' && booking.status !== 'rejected' && (
+                                                <button
+                                                    onClick={() => {
+                                                        setShowDatePopup(null);
+                                                        openCancelModal(booking);
+                                                    }}
+                                                    className="w-full mt-5 py-3 rounded-xl border-2 border-rose-100 text-rose-500 font-bold text-sm hover:bg-rose-50 transition-colors"
+                                                >
+                                                    Cancel Reservation
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
+
+            {/* ═══ CANCEL MODAL ═══ */}
+            {cancelModal.open && cancelModal.booking && (() => {
+                const booking = cancelModal.booking!;
+                const allSlots = getTimeSlots(booking.start_time, booking.end_time);
+                const isSingleSlot = allSlots.length <= 1;
+
+                return (
+                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={closeCancelModal}>
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                            {/* Header */}
+                            <div className="bg-gradient-to-r from-rose-500 to-red-500 px-6 py-5 text-white rounded-t-2xl flex-shrink-0">
+                                <h3 className="text-lg font-bold">Cancel Booking</h3>
+                                <p className="text-rose-100 text-sm mt-1">{booking.room_name} • {booking.start_time?.slice(0, 5)} – {booking.end_time?.slice(0, 5)}</p>
+                            </div>
+
+                            <div className="p-6 space-y-5 overflow-y-auto flex-1">
+                                {/* Reason (required) */}
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                                        Cancellation Reason <span className="text-rose-500">*</span>
+                                    </label>
+                                    <textarea
+                                        value={cancelReason}
+                                        onChange={e => setCancelReason(e.target.value)}
+                                        placeholder="Please provide a reason for cancellation..."
+                                        className="w-full border border-slate-200 rounded-xl p-3 text-sm resize-none h-24 focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-rose-300 transition-all"
+                                    />
+                                </div>
+
+                                {/* Time Slot Selector (only if multi-slot) */}
+                                {!isSingleSlot && (
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                                            Select Time Slots to Cancel
+                                        </label>
+                                        <p className="text-xs text-slate-400 mb-3">Uncheck slots you want to keep. Checked slots will be cancelled.</p>
+                                        <div className="space-y-2">
+                                            {allSlots.map(slot => {
+                                                const [from, to] = slot.split('-');
+                                                const checked = selectedSlots.includes(slot);
+                                                return (
+                                                    <label
+                                                        key={slot}
+                                                        className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${checked
+                                                            ? 'border-rose-300 bg-rose-50 text-rose-700'
+                                                            : 'border-slate-100 bg-slate-50 text-slate-500 hover:border-slate-200'
+                                                            }`}
+                                                    >
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={checked}
+                                                            onChange={() => toggleSlot(slot)}
+                                                            className="w-4 h-4 rounded accent-rose-500"
+                                                        />
+                                                        <Clock size={16} />
+                                                        <span className="font-bold text-sm">{from.slice(0, 5)} – {to.slice(0, 5)}</span>
+                                                        {checked && <span className="ml-auto text-[10px] font-black uppercase tracking-wider text-rose-400">Will Cancel</span>}
+                                                        {!checked && <span className="ml-auto text-[10px] font-black uppercase tracking-wider text-emerald-500">Keeping</span>}
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                        <div className="flex gap-2 mt-3">
+                                            <button onClick={() => setSelectedSlots([...allSlots])} className="text-xs text-rose-500 font-bold hover:underline">Select All</button>
+                                            <span className="text-slate-300">|</span>
+                                            <button onClick={() => setSelectedSlots([])} className="text-xs text-slate-500 font-bold hover:underline">Deselect All</button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Summary */}
+                                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                                    <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Cancellation Summary</p>
+                                    <p className="text-sm font-bold text-slate-700">
+                                        {selectedSlots.length === allSlots.length
+                                            ? '⚠️ Full cancellation — entire booking will be cancelled'
+                                            : `Partial cancel: ${selectedSlots.length} of ${allSlots.length} slot${allSlots.length > 1 ? 's' : ''} selected`
+                                        }
+                                    </p>
+                                    {selectedSlots.length > 0 && selectedSlots.length < allSlots.length && (
+                                        <p className="text-xs text-emerald-600 mt-1 font-semibold">
+                                            ✓ Remaining {allSlots.length - selectedSlots.length} slot(s) will stay booked
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* Actions */}
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={closeCancelModal}
+                                        className="flex-1 py-3 px-4 rounded-xl border border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 transition-colors"
+                                    >
+                                        Go Back
+                                    </button>
+                                    <button
+                                        onClick={submitCancel}
+                                        disabled={!cancelReason.trim() || selectedSlots.length === 0 || cancellingId !== null}
+                                        className="flex-1 py-3 px-4 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        {cancellingId ? 'Cancelling...' : 'Confirm Cancel'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
         </div>
     );
 };
 
 export default MyBookingsPage;
+

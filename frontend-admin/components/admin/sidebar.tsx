@@ -16,16 +16,61 @@ import {
 } from 'lucide-react';
 import { fetchAllBookings } from '@/lib/api';
 
+/**
+ * ═══════════════════════════════════════════════════════════════
+ *  ADMIN FRONTEND — NAVIGATION ROUTES (http://localhost:3001)
+ * ═══════════════════════════════════════════════════════════════
+ *
+ *  Route                        Page               Description
+ *  ─────────────────────────    ────────────────   ──────────────────────────────
+ *  /                            Login Page          Admin login (email + password)
+ *  /admin                       Dashboard           Overview: stats, recent bookings
+ *  /admin/rooms                 Rooms               Add, view, delete conference rooms
+ *  /admin/users                 Users               View registered users
+ *  /admin/bookings              Bookings            View all bookings (all statuses)
+ *  /admin/approvals             Approvals           Approve or reject pending bookings
+ *  /admin/cancellations         Cancellations       View cancellation records
+ *  /admin/reports               Reports             Booking analytics & reports
+ *  /admin/notifications         Notifications       System notifications
+ *  /admin/settings              Settings            System settings
+ *
+ *  NAVIGATION FLOW:
+ *  ═══════════════════════════════════════════════════════════════
+ *
+ *  Login Page ('/')
+ *    └── On successful admin login  → Dashboard ('/admin')
+ *
+ *  Sidebar (visible on all /admin/* pages):
+ *    ├── Dashboard                  → /admin
+ *    ├── Rooms                      → /admin/rooms
+ *    ├── Users                      → /admin/users
+ *    ├── Bookings                   → /admin/bookings
+ *    ├── Approvals                  → /admin/approvals
+ *    ├── Cancellations              → /admin/cancellations
+ *    ├── Reports                    → /admin/reports
+ *    ├── Notifications              → /admin/notifications
+ *    └── Settings                   → /admin/settings
+ *
+ *  Approvals Page ('/admin/approvals')
+ *    ├── "Approve" button           → Changes booking status to 'confirmed'
+ *    └── "Reject" button            → Changes booking status to 'rejected'
+ *
+ *  Bookings Page ('/admin/bookings')
+ *    ├── "Cancel" button            → Cancels booking → appears in /admin/cancellations
+ *    └── "Delete" button            → Deletes booking permanently
+ *
+ * ═══════════════════════════════════════════════════════════════
+ */
 const navigationItems = [
-  { label: 'Dashboard', href: '/admin', icon: LayoutGrid },
-  { label: 'Rooms', href: '/admin/rooms', icon: Building2 },
-  { label: 'Users', href: '/admin/users', icon: Users },
-  { label: 'Bookings', href: '/admin/bookings', icon: Calendar },
-  { label: 'Approvals', href: '/admin/approvals', icon: CheckCircle },
-  { label: 'Cancellations', href: '/admin/cancellations', icon: XCircle },
-  { label: 'Reports', href: '/admin/reports', icon: BarChart3 },
-  { label: 'Notifications', href: '/admin/notifications', icon: Bell },
-  { label: 'Settings', href: '/admin/settings', icon: Settings },
+  { label: 'Dashboard', href: '/admin', icon: LayoutGrid },               // Route: /admin
+  { label: 'Rooms', href: '/admin/rooms', icon: Building2 },              // Route: /admin/rooms
+  { label: 'Users', href: '/admin/users', icon: Users },                  // Route: /admin/users
+  { label: 'Bookings', href: '/admin/bookings', icon: Calendar },         // Route: /admin/bookings
+  { label: 'Approvals', href: '/admin/approvals', icon: CheckCircle },    // Route: /admin/approvals
+  { label: 'Cancellations', href: '/admin/cancellations', icon: XCircle },// Route: /admin/cancellations
+  { label: 'Reports', href: '/admin/reports', icon: BarChart3 },          // Route: /admin/reports
+  { label: 'Notifications', href: '/admin/notifications', icon: Bell },   // Route: /admin/notifications
+  { label: 'Settings', href: '/admin/settings', icon: Settings },         // Route: /admin/settings
 ];
 
 export function Sidebar() {

@@ -97,12 +97,9 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
             const roomObj = availableRooms.find(r => `${r.catalog_id}:${r.room_id}` === formData.room);
             if (!roomObj) throw new Error('Selected room not found');
 
-            // We take the first selected date and slots for simplicity in this modal
             const date = selectedDates[0];
-            const slot = formData.timeSlots[0];
-            const [start, end] = slot.split('-').map(s => s.trim());
 
-            // Convert "09:00 AM" to "09:00"
+            // Convert "09:00 AM" to "09:00:00"
             const formatTime = (t: string) => {
                 const [time, meridiem] = t.split(' ');
                 let [h, m] = time.split(':');
@@ -111,15 +108,29 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
                 return `${h.padStart(2, '0')}:${m || '00'}:00`;
             };
 
+            // Combine all selected slots into a single start-end range
+            // Each slot is like "09:00 AM - 10:00 AM"
+            const sortedSlots = [...formData.timeSlots].sort((a, b) => {
+                const aStart = formatTime(a.split('-')[0].trim());
+                const bStart = formatTime(b.split('-')[0].trim());
+                return aStart.localeCompare(bStart);
+            });
+
+            const firstSlot = sortedSlots[0];
+            const lastSlot = sortedSlots[sortedSlots.length - 1];
+            const combinedStart = formatTime(firstSlot.split('-')[0].trim());
+            const combinedEnd = formatTime(lastSlot.split('-')[1].trim());
+
             await createBooking({
                 uid: user.uid,
                 catalog_id: roomObj.catalog_id,
                 room_id: roomObj.room_id,
                 start_date: date,
                 end_date: date,
-                start_time: formatTime(start),
-                end_time: formatTime(end),
-                purpose: formData.purpose
+                start_time: combinedStart,
+                end_time: combinedEnd,
+                purpose: formData.purpose,
+                attendees: parseInt(formData.attendees) || 1
             });
 
             alert('Booking request submitted successfully!');

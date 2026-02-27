@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS booking (
     end_time TIME NOT NULL,
 
     purpose VARCHAR(200),
+    attendees INT DEFAULT 1,
     status VARCHAR(50),
 
     FOREIGN KEY (catalog_id, room_id)
@@ -86,5 +87,21 @@ CREATE TABLE IF NOT EXISTS cancellation (
         REFERENCES booking(booking_id),
 
     FOREIGN KEY (cancelled_by_uid)
+        REFERENCES users(uid)
+);
+
+-- ==========================
+-- TICKET_DETAILS TABLE
+-- ==========================
+CREATE TABLE IF NOT EXISTS ticket_details (
+    ticket_id VARCHAR(50) PRIMARY KEY,
+    booking_id VARCHAR(50) UNIQUE NOT NULL,
+    uid VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (booking_id)
+        REFERENCES booking(booking_id),
+
+    FOREIGN KEY (uid)
         REFERENCES users(uid)
 );

@@ -62,15 +62,15 @@ export default function CancellationsPage() {
                 </tr>
               </thead>
               <tbody>
-                {cancellations.map(c => (
-                  <tr key={c.cancellation_id} className="border-b border-border hover:bg-muted/30 transition-colors">
-                    <td className="p-4 text-sm font-mono text-foreground">{c.cancellation_id}</td>
+                {cancellations.map((c, idx) => (
+                  <tr key={c.cancel_id || idx} className="border-b border-border hover:bg-muted/30 transition-colors">
+                    <td className="p-4 text-sm font-mono text-foreground">{c.cancel_id}</td>
                     <td className="p-4 text-sm font-mono text-foreground">{c.booking_id}</td>
-                    <td className="p-4 text-sm text-foreground">{c.user_name || c.uid}</td>
+                    <td className="p-4 text-sm text-foreground">{c.cancelled_by_name || c.uid}</td>
                     <td className="p-4 text-sm text-foreground">{c.room_name || '—'}</td>
-                    <td className="p-4 text-sm text-foreground max-w-[250px]">{c.reason || '—'}</td>
+                    <td className="p-4 text-sm text-foreground max-w-[250px]">{c.cancel_reason || '—'}</td>
                     <td className="p-4 text-sm text-muted-foreground">
-                      {c.cancelled_at ? new Date(c.cancelled_at).toLocaleString() : '—'}
+                      {c.cancel_date ? new Date(c.cancel_date).toLocaleDateString() : '—'}
                     </td>
                   </tr>
                 ))}

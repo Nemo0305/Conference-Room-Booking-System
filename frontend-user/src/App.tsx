@@ -28,10 +28,71 @@ export interface BookingResult {
     start_time: string;
     end_time: string;
     purpose: string;
+    attendees?: number;
     user_name?: string;
     email?: string;
 }
 
+/**
+ * ═══════════════════════════════════════════════════════════════
+ *  USER FRONTEND — NAVIGATION ROUTES (http://localhost:5173)
+ * ═══════════════════════════════════════════════════════════════
+ *
+ *  View Name       Component              Description
+ *  ────────────    ─────────────────────  ──────────────────────────────
+ *  'home'          Hero + Stats + etc.    Landing page / Dashboard
+ *  'login'         LoginPage              User login / signup
+ *  'search'        SearchPage             Browse & search rooms
+ *  'details'       RoomDetailsPage        View room info & book
+ *  'ticket'        TicketPage             Booking confirmation & PDF download
+ *  'calendar'      CalendarPage           Calendar view & multi-slot booking
+ *  'my-bookings'   MyBookingsPage         View/cancel user bookings
+ *  'help'          HelpCenterPage         FAQ & help section
+ *  'profile'       ProfilePage            User profile & settings
+ *
+ *  ═══════════════════════════════════════════════════════════════
+ *  NAVIGATION FLOW (which page leads to which):
+ *  ═══════════════════════════════════════════════════════════════
+ *
+ *  Home Page ('home')
+ *    ├── Header "Login" button        → Login Page ('login')
+ *    ├── Hero "Reserve Now" button    → Search Page ('search')
+ *    ├── Hero "Calendar" button       → Calendar Page ('calendar')
+ *    ├── QuickAccess "View Available" → Search Page ('search')
+ *    ├── Header nav "My Bookings"     → My Bookings Page ('my-bookings')
+ *    ├── Header nav "Help"            → Help Center Page ('help')
+ *    └── Header "Profile" icon        → Profile Page ('profile')
+ *
+ *  Login Page ('login')
+ *    └── On successful login          → Home Page ('home')
+ *
+ *  Search Page ('search')
+ *    └── Click on a room card         → Room Details Page ('details')
+ *
+ *  Room Details Page ('details')
+ *    ├── "Back" button                → Search Page ('search')
+ *    └── On booking success           → Ticket Page ('ticket')
+ *
+ *  Ticket Page ('ticket')
+ *    ├── "Back to Home" button        → Home Page ('home')
+ *    ├── "View My Bookings" button    → My Bookings Page ('my-bookings')
+ *    └── "Download PDF" button        → Downloads ticket as PDF file
+ *
+ *  Calendar Page ('calendar')
+ *    └── On booking via calendar      → Ticket Page ('ticket')
+ *
+ *  My Bookings Page ('my-bookings')
+ *    ├── "Browse Rooms" button        → Search Page ('search')
+ *    └── "Access Ticket" button       → Ticket Page ('ticket')
+ *
+ *  Help Center Page ('help')
+ *    └── Internal links               → Any page via navigateTo()
+ *
+ *  Profile Page ('profile')
+ *    └── (self-contained, no outgoing navigation)
+ *
+ * ═══════════════════════════════════════════════════════════════
+ */
 function App() {
     const [currentView, setCurrentView] = useState('home');
     const { isLoading } = useAuth();

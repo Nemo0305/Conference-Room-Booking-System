@@ -5,9 +5,11 @@ import {
     Clock,
     MapPin,
     ArrowRight,
-    House
+    House,
+    UsersThree,
+    Ticket
 } from '@phosphor-icons/react';
-import React from 'react';
+import React, { useRef, useCallback } from 'react';
 import { Booking, parseLocalDate } from '../lib/api';
 
 interface TicketPageProps {
@@ -17,6 +19,160 @@ interface TicketPageProps {
 }
 
 const TicketPage: React.FC<TicketPageProps> = ({ booking, onHome, onViewBookings }) => {
+    const ticketRef = useRef<HTMLDivElement>(null);
+
+    const handleDownloadPDF = useCallback(() => {
+        if (!booking) return;
+
+        const dateStr = parseLocalDate((booking.date || booking.start_date || '').slice(0, 10)).toLocaleDateString('en-US', {
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+        });
+        const timeStr = `${booking.start_time?.slice(0, 5)} - ${booking.end_time?.slice(0, 5)}`;
+        const ticketId = booking.ticket_id || booking.booking_id;
+        const attendees = booking.attendees || 1;
+
+        // --- Build a raw PDF entirely in JS (no library needed) ---
+        // PDF coordinate system: origin is bottom-left, units are points (1/72 inch)
+        const W = 595.28; // A4 width in points
+        const H = 841.89; // A4 height in points
+
+        // Helper: escape special PDF chars in text
+        const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+
+        // We'll collect PDF objects
+        let objId = 0;
+        const objects: string[] = [];
+        const offsets: number[] = [];
+
+        const addObj = (content: string) => {
+            objId++;
+            objects.push(content);
+            return objId;
+        };
+
+        // Object 1: Catalog
+        addObj('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj');
+        // Object 2: Pages
+        addObj('2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj');
+        // Object 3: Page
+        addObj(`3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Contents 5 0 R /Resources << /Font << /F1 4 0 R /F2 6 0 R >> >> >>\nendobj`);
+        // Object 4: Font (Helvetica)
+        addObj('4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\nendobj');
+
+        // Build the content stream
+        let y = H - 60; // Start from top
+        const mx = 50; // Left margin
+        const cw = W - 100; // Content width
+
+        let stream = '';
+
+        // --- Header background (purple rectangle) ---
+        stream += `0.388 0.400 0.945 rg\n`; // #6366f1
+        stream += `${mx} ${y - 80} ${cw} 90 re f\n`;
+
+        // Header text
+        stream += `BT\n1 1 1 rg\n/F1 20 Tf\n${mx + 20} ${y - 30} Td\n(${esc(booking.room_name || 'Conference Room')}) Tj\nET\n`;
+        stream += `BT\n1 1 1 rg\n/F1 11 Tf\n${mx + 20} ${y - 52} Td\n(${esc(booking.location || '')}) Tj\nET\n`;
+
+        // Status badge text
+        const statusText = booking.status === 'confirmed' ? 'CONFIRMED' : 'PENDING';
+        stream += `BT\n1 1 1 rg\n/F1 9 Tf\n${mx + cw - 100} ${y - 30} Td\n(${statusText}) Tj\nET\n`;
+
+        y -= 110;
+
+        // --- Dashed separator line ---
+        stream += `0.886 0.910 0.941 RG\n[4 3] 0 d\n0.5 w\n${mx + 10} ${y} m ${mx + cw - 10} ${y} l S\n[] 0 d\n`;
+
+        y -= 35;
+
+        // --- Field rendering helper ---
+        const drawField = (label: string, value: string, x: number, yPos: number) => {
+            // Label (gray, small, uppercase)
+            stream += `BT\n0.580 0.639 0.722 rg\n/F1 8 Tf\n${x} ${yPos} Td\n(${esc(label.toUpperCase())}) Tj\nET\n`;
+            // Value (dark, bold-ish)
+            stream += `BT\n0.118 0.161 0.231 rg\n/F1 12 Tf\n${x} ${yPos - 16} Td\n(${esc(value)}) Tj\nET\n`;
+        };
+
+        // Row 1: Date & Time
+        drawField('Date', dateStr, mx + 20, y);
+        drawField('Time', timeStr, mx + cw / 2, y);
+        y -= 50;
+
+        // Row 2: Location & Ticket ID
+        drawField('Location', booking.location || 'N/A', mx + 20, y);
+        drawField('Ticket ID', ticketId, mx + cw / 2, y);
+        y -= 55;
+
+        // --- Attendees section (light blue bg) ---
+        stream += `0.933 0.949 1 rg\n`; // #eef2ff
+        stream += `${mx + 10} ${y - 40} ${cw - 20} 55 re f\n`;
+        // Border
+        stream += `0.780 0.824 0.996 RG\n0.5 w\n${mx + 10} ${y - 40} ${cw - 20} 55 re S\n`;
+
+        stream += `BT\n0.388 0.400 0.945 rg\n/F1 8 Tf\n${mx + 25} ${y} Td\n(NUMBER OF ATTENDEES) Tj\nET\n`;
+        stream += `BT\n0.263 0.220 0.792 rg\n/F1 22 Tf\n${mx + 25} ${y - 28} Td\n(${attendees} person${attendees > 1 ? 's' : ''}) Tj\nET\n`;
+
+        // Booking Ref on right
+        stream += `BT\n0.580 0.639 0.722 rg\n/F1 8 Tf\n${mx + cw - 150} ${y} Td\n(BOOKING REF) Tj\nET\n`;
+        stream += `BT\n0.200 0.255 0.333 rg\n/F2 11 Tf\n${mx + cw - 150} ${y - 28} Td\n(${esc(booking.booking_id)}) Tj\nET\n`;
+
+        y -= 70;
+
+        // --- Booked By / Email section (light gray bg) ---
+        stream += `0.973 0.976 0.984 rg\n`; // #f8fafc
+        stream += `${mx + 10} ${y - 35} ${cw - 20} 50 re f\n`;
+
+        drawField('Booked By', booking.user_name || 'User', mx + 25, y);
+        drawField('Email', booking.email || 'N/A', mx + cw / 2, y);
+        y -= 60;
+
+        // --- Purpose section ---
+        if (booking.purpose) {
+            // Purple left border
+            stream += `0.388 0.400 0.945 rg\n${mx + 10} ${y - 35} 4 45 re f\n`;
+            // Light purple background
+            stream += `0.961 0.953 1 rg\n${mx + 14} ${y - 35} ${cw - 24} 45 re f\n`;
+
+            stream += `BT\n0.388 0.400 0.945 rg\n/F1 8 Tf\n${mx + 25} ${y} Td\n(MEETING PURPOSE) Tj\nET\n`;
+            stream += `BT\n0.278 0.333 0.412 rg\n/F1 11 Tf\n${mx + 25} ${y - 22} Td\n("${esc(booking.purpose)}") Tj\nET\n`;
+            y -= 60;
+        }
+
+        // --- Footer ---
+        stream += `BT\n0.796 0.835 0.882 rg\n/F1 9 Tf\n${mx + cw / 2 - 120} ${y - 10} Td\n(Conference Room Booking System - Generated Ticket) Tj\nET\n`;
+
+        // Object 5: Stream content
+        addObj(`5 0 obj\n<< /Length ${stream.length} >>\nstream\n${stream}endstream\nendobj`);
+        // Object 6: Font (Courier for monospace)
+        addObj('6 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>\nendobj');
+
+        // Build full PDF
+        let pdf = '%PDF-1.4\n';
+        for (let i = 0; i < objects.length; i++) {
+            offsets.push(pdf.length);
+            pdf += objects[i] + '\n';
+        }
+        const xrefOffset = pdf.length;
+        pdf += `xref\n0 ${objId + 1}\n`;
+        pdf += '0000000000 65535 f \n';
+        for (let i = 0; i < offsets.length; i++) {
+            pdf += String(offsets[i]).padStart(10, '0') + ' 00000 n \n';
+        }
+        pdf += `trailer\n<< /Size ${objId + 1} /Root 1 0 R >>\n`;
+        pdf += `startxref\n${xrefOffset}\n%%EOF`;
+
+        // Download instantly
+        const blob = new Blob([pdf], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `ticket-${ticketId}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }, [booking]);
+
     if (!booking) {
         return (
             <div className="max-w-md mx-auto text-center py-20 px-4">
@@ -42,7 +198,7 @@ const TicketPage: React.FC<TicketPageProps> = ({ booking, onHome, onViewBookings
             </div>
 
             {/* Ticket Card */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden relative">
+            <div ref={ticketRef} className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden relative">
                 {/* Decorative Header */}
                 <div className="bg-gradient-to-r from-primary to-secondary py-6 px-8 text-white">
                     <div className="flex justify-between items-start">
@@ -94,11 +250,26 @@ const TicketPage: React.FC<TicketPageProps> = ({ booking, onHome, onViewBookings
                             </div>
                         </div>
                         <div className="flex items-start gap-3">
-                            <DownloadSimple size={20} className="text-primary mt-0.5" />
+                            <Ticket size={20} className="text-primary mt-0.5" />
                             <div>
-                                <p className="text-xs text-slate-400 uppercase font-bold tracking-wider">Booking ID</p>
-                                <p className="text-slate-900 font-semibold font-mono text-sm">{booking.booking_id}</p>
+                                <p className="text-xs text-slate-400 uppercase font-bold tracking-wider">Ticket ID</p>
+                                <p className="text-slate-900 font-semibold font-mono text-sm">{booking.ticket_id || booking.booking_id}</p>
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Attendees Section */}
+                    <div className="flex items-center gap-4 bg-indigo-50/70 rounded-xl p-5 mb-6 border border-indigo-100">
+                        <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-500">
+                            <UsersThree size={28} weight="duotone" />
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-[10px] text-indigo-400 uppercase font-bold tracking-widest mb-0.5">Number of Attendees</p>
+                            <p className="text-2xl font-black text-indigo-700">{booking.attendees || 1} <span className="text-sm font-semibold text-indigo-400">person{(booking.attendees || 1) > 1 ? 's' : ''}</span></p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest mb-0.5">Booking Ref</p>
+                            <p className="text-slate-700 font-bold font-mono text-sm">{booking.booking_id}</p>
                         </div>
                     </div>
 
@@ -121,7 +292,9 @@ const TicketPage: React.FC<TicketPageProps> = ({ booking, onHome, onViewBookings
                     )}
 
                     <p className="text-xs text-center text-slate-400 mt-4">
-                        Your booking is pending admin approval. You'll receive a confirmation once approved.
+                        {booking.status === 'confirmed'
+                            ? 'Your booking has been approved. Download your ticket for reference.'
+                            : 'Your booking is pending admin approval. You\'ll receive a confirmation once approved.'}
                     </p>
                 </div>
             </div>
@@ -131,6 +304,14 @@ const TicketPage: React.FC<TicketPageProps> = ({ booking, onHome, onViewBookings
                 <button onClick={onHome} className="flex-1 py-4 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-xl transition-colors flex items-center justify-center gap-2">
                     <House size={20} /> Back to Home
                 </button>
+                {booking.status === 'confirmed' && (
+                    <button
+                        onClick={handleDownloadPDF}
+                        className="flex-1 py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25"
+                    >
+                        <DownloadSimple size={20} weight="bold" /> Download PDF
+                    </button>
+                )}
                 <button onClick={onViewBookings} className="flex-1 py-4 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2">
                     View My Bookings <ArrowRight size={18} />
                 </button>

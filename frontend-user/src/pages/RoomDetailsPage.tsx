@@ -30,6 +30,7 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
     const [startTime, setStartTime] = useState('');
     const [endTime, setEndTime] = useState('');
     const [purpose, setPurpose] = useState('');
+    const [attendees, setAttendees] = useState<number>(1);
     const [submitting, setSubmitting] = useState(false);
     const [bookResult, setBookResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
@@ -62,6 +63,7 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
                 start_time: startTime,
                 end_time: endTime,
                 purpose,
+                attendees,
             });
             setBookResult({ ok: true, msg: `Booking created! ID: ${result.booking_id}` });
             // Navigate to ticket after short delay
@@ -74,6 +76,7 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
                     start_time: startTime,
                     end_time: endTime,
                     purpose,
+                    attendees,
                     user_name: user.name,
                     email: user.email,
                 });
@@ -228,6 +231,10 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">End Time</label>
                                 <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} required className="w-full p-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Attendees</label>
+                                <input type="number" min="1" value={attendees} onChange={e => setAttendees(parseInt(e.target.value) || 1)} required className="w-full p-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Purpose</label>

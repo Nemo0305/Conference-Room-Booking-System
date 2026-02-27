@@ -16,10 +16,11 @@ async function getNextBookingId() {
 router.get('/', authMiddleware, adminOnly, async (req, res) => {
     try {
         const [rows] = await db.query(`
-            SELECT b.*, u.name AS user_name, u.email, c.room_name
+            SELECT b.*, u.name AS user_name, u.email, c.room_name, t.ticket_id
             FROM booking b
             JOIN users u ON b.uid = u.uid
             JOIN conference_catalog c ON b.catalog_id = c.catalog_id AND b.room_id = c.room_id
+            LEFT JOIN ticket_details t ON b.booking_id = t.booking_id
             ORDER BY b.start_date DESC, b.start_time DESC
         `);
         res.json(rows);
@@ -40,10 +41,11 @@ router.get('/user/:uid', authMiddleware, async (req, res) => {
     }
     try {
         const [rows] = await db.query(`
-            SELECT b.*, c.room_name, c.location, c.floor_no, u.name AS user_name, u.email
+            SELECT b.*, c.room_name, c.location, c.floor_no, u.name AS user_name, u.email, t.ticket_id
             FROM booking b
             JOIN conference_catalog c ON b.catalog_id = c.catalog_id AND b.room_id = c.room_id
             JOIN users u ON b.uid = u.uid
+            LEFT JOIN ticket_details t ON b.booking_id = t.booking_id
             WHERE b.uid = ?
             ORDER BY b.start_date DESC, b.start_time DESC
         `, [uid]);
@@ -57,7 +59,7 @@ router.get('/user/:uid', authMiddleware, async (req, res) => {
 
 // POST /api/bookings — create booking (protected)
 router.post('/', authMiddleware, async (req, res) => {
-    const { uid, catalog_id, room_id, start_date, end_date, start_time, end_time, purpose } = req.body;
+    const { uid, catalog_id, room_id, start_date, end_date, start_time, end_time, purpose, attendees } = req.body;
 
     console.log('[BOOKING] New booking attempt:', { uid, catalog_id, room_id, start_date, end_date, start_time, end_time });
 
@@ -89,8 +91,8 @@ router.post('/', authMiddleware, async (req, res) => {
 
         const booking_id = await getNextBookingId();
         const [result] = await db.query(
-            'INSERT INTO booking (booking_id, uid, catalog_id, room_id, start_date, end_date, start_time, end_time, purpose, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [booking_id, uid, catalog_id, room_id, start_date, end_date, start_time, end_time, purpose || '', 'pending']
+            'INSERT INTO booking (booking_id, uid, catalog_id, room_id, start_date, end_date, start_time, end_time, purpose, attendees, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [booking_id, uid, catalog_id, room_id, start_date, end_date, start_time, end_time, purpose || '', attendees || 1, 'pending']
         );
 
         // Also create a ticket entry
