@@ -52,6 +52,15 @@ const authHeaders = (): HeadersInit => ({
     ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
 });
 
+// Auto-logout on expired/invalid token
+const handleAuthError = (res: Response) => {
+    if (res.status === 401 || res.status === 403) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.reload();
+    }
+};
+
 export const parseLocalDate = (dateStr: string): Date => {
     if (!dateStr) return new Date();
     const parts = dateStr.slice(0, 10).split('-');
@@ -117,6 +126,25 @@ export const fetchRoom = async (catalog_id: string, room_id: string): Promise<Ro
 };
 
 // ── Bookings ───────────────────────────────────────────────
+
+export interface BookedSlot {
+    start_time: string;
+    end_time: string;
+    status: string;
+    user_name?: string;
+    email?: string;
+    phone_no?: string;
+    purpose?: string;
+}
+
+export const fetchRoomAvailability = async (
+    catalog_id: string, room_id: string, date: string
+): Promise<BookedSlot[]> => {
+    const res = await fetch(`${API_URL}/bookings/availability/${catalog_id}/${room_id}?date=${date}`);
+    if (!res.ok) throw new Error('Failed to fetch availability');
+    return res.json();
+};
+
 export const createBooking = async (data: {
     uid: string; catalog_id: string; room_id: string;
     start_date: string; end_date: string;
@@ -138,7 +166,10 @@ export const fetchUserBookings = async (uid: string): Promise<Booking[]> => {
     const res = await fetch(`${API_URL}/bookings/user/${uid}`, {
         headers: authHeaders(),
     });
-    if (!res.ok) throw new Error('Failed to fetch your bookings');
+    if (!res.ok) {
+        handleAuthError(res);
+        throw new Error('Failed to fetch your bookings');
+    }
     return res.json();
 };
 
@@ -182,7 +213,10 @@ export const cancelBooking = async (
 // ── Users ──────────────────────────────────────────────────
 export const fetchUserProfile = async (uid: string): Promise<User> => {
     const res = await fetch(`${API_URL}/users/${uid}`, { headers: authHeaders() });
-    if (!res.ok) throw new Error('Failed to fetch profile');
+    if (!res.ok) {
+        handleAuthError(res);
+        throw new Error('Failed to fetch profile');
+    }
     return res.json();
 };
 

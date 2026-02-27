@@ -4,10 +4,12 @@ import {
     Ticket,
     X,
     CalendarBlank,
-    CaretDown
+    CaretDown,
+    Eye,
+    Lock
 } from '@phosphor-icons/react';
-import React, { useState, useRef, useEffect } from 'react';
-import { fetchUserBookings, getCurrentUser, Booking, fetchRooms, createBooking, Room } from '../lib/api';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { fetchUserBookings, getCurrentUser, Booking, fetchRooms, createBooking, Room, fetchRoomAvailability, BookedSlot } from '../lib/api';
 import LoginPage from './LoginPage';
 
 
@@ -51,6 +53,11 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
     const [availableRooms, setAvailableRooms] = useState<Room[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    // Real-time availability for selected room
+    const [roomBookedSlots, setRoomBookedSlots] = useState<BookedSlot[]>([]);
+    const [viewingBookedSlot, setViewingBookedSlot] = useState<number | null>(null);
+    const [, setNow] = useState(new Date()); // force re-render every minute
+
     const loadData = async () => {
         const user = getCurrentUser();
         if (!user) return;
@@ -82,6 +89,12 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
 
     useEffect(() => {
         loadData();
+    }, []);
+
+    // Auto-refresh every 60 seconds to update past-time slot status
+    useEffect(() => {
+        const timer = setInterval(() => setNow(new Date()), 60000);
+        return () => clearInterval(timer);
     }, []);
 
     const handleConfirmBooking = async () => {
@@ -133,7 +146,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
                 attendees: parseInt(formData.attendees) || 1
             });
 
-            alert('Booking request submitted successfully!');
+            alert('Booking confirmed successfully!');
             setIsModalOpen(false);
             loadData(); // Refresh calendar
         } catch (e: any) {
@@ -147,12 +160,31 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
     // Modal Form State
     const [formData, setFormData] = useState({
         room: '',
-        attendees: '12',
-        purpose: 'team',
-        name: 'jigi',
-        email: '',
+        attendees: '1',
+        purpose: '',
         timeSlots: [] as string[]
     });
+
+    // Fetch real-time availability for the selected room + date
+    const loadRoomAvailability = useCallback(async () => {
+        if (!formData.room || selectedDates.length === 0) {
+            setRoomBookedSlots([]);
+            return;
+        }
+        const [catalog_id, room_id] = formData.room.split(':');
+        const date = selectedDates[0];
+        try {
+            const slots = await fetchRoomAvailability(catalog_id, room_id, date);
+            setRoomBookedSlots(slots);
+        } catch (e) {
+            console.error('Failed to fetch room availability:', e);
+            setRoomBookedSlots([]);
+        }
+    }, [formData.room, selectedDates]);
+
+    useEffect(() => {
+        loadRoomAvailability();
+    }, [loadRoomAvailability]);
 
     // Filters
     const [selectedLocation, setSelectedLocation] = useState<string>('All Locations');
@@ -233,16 +265,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
         return a.start < b.end && b.start < a.end;
     };
 
-    const isSlotBookedForDate = (date: string, slot: string) => {
-        const slotRange = parseRangeToMinutes(slot);
-        if (!slotRange) return false;
-        const bookings = bookingEvents.filter(e => e.date === date);
-        return bookings.some(b => {
-            const br = parseRangeToMinutes(b.timeSlot);
-            if (!br) return false;
-            return rangesOverlap(slotRange, br);
-        });
-    };
+
 
     const timeSlotMatchesFilter = (bookingTime?: string, filter?: string) => {
         if (!filter || filter === 'All Time Slots') return true;
@@ -631,17 +654,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
                                                 >
                                                     Book Now
                                                 </button>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setDetailDate(dateStr);
-                                                        setIsDetailOpen(true);
-                                                        setActiveDateOptions(null);
-                                                    }}
-                                                    className="bg-white text-xs px-3 py-1 rounded border border-slate-200 shadow"
-                                                >
-                                                    View Details
-                                                </button>
+
                                             </div>
                                         )}
                                     </div>
@@ -880,7 +893,9 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
                                 <select
                                     className="w-full p-3 rounded-lg border border-slate-300 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary bg-white"
                                     value={formData.room}
-                                    onChange={(e) => setFormData({ ...formData, room: e.target.value })}
+                                    onChange={(e) => {
+                                        setFormData({ ...formData, room: e.target.value, timeSlots: [] });
+                                    }}
                                 >
                                     <option value="" disabled>Choose a room</option>
                                     {availableRooms.map(r => (
@@ -894,25 +909,98 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
                             {/* Time Slots */}
                             <div>
                                 <label className="block text-sm font-medium text-slate-900 mb-2">Select Time Slots</label>
-                                <div className="grid grid-cols-2 gap-3 h-48 overflow-y-auto pr-2 custom-scrollbar">
-                                    {timeSlots.map(slot => {
-                                        const booked = isSlotBookedForDate(selectedDates[0] || '', slot);
+                                <p className="text-xs text-slate-400 mb-2">Grey = past · Red = booked (click to see who) · Green = available</p>
+                                <div className="grid grid-cols-2 gap-3 h-56 overflow-y-auto pr-2 custom-scrollbar">
+                                    {timeSlots.map((slot, slotIdx) => {
+                                        // Check if slot is in the past for today
+                                        const selectedDate = selectedDates[0] || '';
+                                        const todayStr = new Date().toISOString().slice(0, 10);
+                                        const isToday = selectedDate === todayStr;
+                                        const slotStartStr = slot.split('-')[0].trim();
+                                        const slotStartMinutes = parseTimeToMinutes(slotStartStr);
+                                        const nowObj = new Date();
+                                        const currentMinutes = nowObj.getHours() * 60 + nowObj.getMinutes();
+                                        const isPastSlot = isToday && slotStartMinutes <= currentMinutes;
+
+                                        // Check if slot is booked via real-time API data
+                                        const slotRange = parseRangeToMinutes(slot);
+                                        const matchingBooking = slotRange ? roomBookedSlots.find(b => {
+                                            const bStartH = parseInt(b.start_time.split(':')[0]);
+                                            const bStartM = parseInt(b.start_time.split(':')[1]);
+                                            const bEndH = parseInt(b.end_time.split(':')[0]);
+                                            const bEndM = parseInt(b.end_time.split(':')[1]);
+                                            const bRange = { start: bStartH * 60 + bStartM, end: bEndH * 60 + bEndM };
+                                            return rangesOverlap(slotRange, bRange);
+                                        }) : undefined;
+                                        const isBookedByApi = !!matchingBooking;
+
+
+                                        const isSelected = formData.timeSlots.includes(slot);
+
+                                        let classes = 'relative p-3 rounded-xl border-2 text-sm font-bold transition-all text-center ';
+                                        if (isPastSlot) {
+                                            classes += 'bg-slate-50 border-slate-100 text-slate-300 cursor-not-allowed line-through';
+                                        } else if (isBookedByApi) {
+                                            classes += 'bg-rose-50 border-rose-200 text-rose-400 cursor-pointer hover:bg-rose-100';
+                                        } else if (isSelected) {
+                                            classes += 'bg-primary border-primary text-white shadow-lg shadow-primary/25';
+                                        } else {
+                                            classes += 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300 cursor-pointer';
+                                        }
+
                                         return (
-                                            <button
-                                                key={slot}
-                                                onClick={() => !booked && toggleTimeSlot(slot)}
-                                                disabled={booked}
-                                                className={`
-                                                    p-3 rounded-lg border text-sm font-medium transition-all text-center
-                                                    ${formData.timeSlots.includes(slot)
-                                                        ? 'bg-white border-primary text-primary ring-1 ring-primary'
-                                                        : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
-                                                    }
-                                                    ${booked ? 'opacity-40 cursor-not-allowed' : ''}
-                                                `}
-                                            >
-                                                {slot}
-                                            </button>
+                                            <div key={slot} className="relative">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (isPastSlot) return;
+                                                        if (isBookedByApi) {
+                                                            setViewingBookedSlot(viewingBookedSlot === slotIdx ? null : slotIdx);
+                                                        } else {
+                                                            toggleTimeSlot(slot);
+                                                        }
+                                                    }}
+                                                    className={classes + ' w-full'}
+                                                >
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        {isPastSlot ? `⏰ ${slot}` : isBookedByApi ? (
+                                                            <>
+                                                                <Lock size={14} />
+                                                                <span>{slot}</span>
+                                                                <Eye size={14} className="ml-1 opacity-70" />
+                                                            </>
+                                                        ) : slot}
+                                                    </div>
+                                                </button>
+
+                                                {/* Booked slot details popup */}
+                                                {isBookedByApi && viewingBookedSlot === slotIdx && matchingBooking && (
+                                                    <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border-2 border-rose-200 rounded-xl shadow-xl p-4 animate-fade-in">
+                                                        <div className="flex justify-between items-start mb-2">
+                                                            <span className="text-xs font-black text-rose-500 uppercase tracking-wide">Booked</span>
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); setViewingBookedSlot(null); }}
+                                                                className="text-slate-400 hover:text-slate-600"
+                                                            >
+                                                                <X size={14} />
+                                                            </button>
+                                                        </div>
+                                                        <p className="text-sm font-bold text-slate-800">{matchingBooking.user_name || 'Unknown'}</p>
+                                                        {matchingBooking.email && (
+                                                            <p className="text-xs text-slate-500">{matchingBooking.email}</p>
+                                                        )}
+                                                        {matchingBooking.phone_no && (
+                                                            <p className="text-xs text-slate-500">📞 {matchingBooking.phone_no}</p>
+                                                        )}
+                                                        {matchingBooking.purpose && (
+                                                            <p className="text-xs text-slate-600 mt-1">📋 {matchingBooking.purpose}</p>
+                                                        )}
+                                                        <p className="text-xs text-slate-400 mt-1">
+                                                            {matchingBooking.start_time.slice(0, 5)} – {matchingBooking.end_time.slice(0, 5)}
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </div>
                                         );
                                     })}
                                 </div>
@@ -940,27 +1028,6 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onPreviewTicket }) => {
                                 ></textarea>
                             </div>
 
-                            {/* Name */}
-                            <div>
-                                <label className="block text-sm font-medium text-slate-900 mb-2">Your Name</label>
-                                <input
-                                    type="text"
-                                    className="w-full p-3 rounded-lg border border-slate-300 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                />
-                            </div>
-
-                            {/* Email */}
-                            <div>
-                                <label className="block text-sm font-medium text-slate-900 mb-2">Email</label>
-                                <input
-                                    type="email"
-                                    className="w-full p-3 rounded-lg border border-slate-300 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                                    value={formData.email}
-                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                />
-                            </div>
                         </div>
 
                         {/* Modal Footer */}

@@ -8,6 +8,6 @@ echo Starting User Frontend...
 start "User Frontend" cmd /c "cd frontend-user && npm install && npm run dev"
 
 echo Starting Admin Frontend...
-start "Admin Frontend" cmd /c "cd frontend-admin && npm install && npm run dev"
+start "Admin Frontend" cmd /c "cd frontend-admin && pnpm install && pnpm run dev"
 
 echo All services are starting up!

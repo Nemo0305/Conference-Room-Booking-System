@@ -42,7 +42,6 @@ export function DashboardAnalytics() {
 
   const totalBookings = data.bookings.length;
   const activeUsers = data.users.length;
-  const pendingApprovals = data.bookings.filter(b => b.status === 'pending').length;
 
   // Calculate utilization (simplistic: % of rooms with at least one confirmed booking)
   const roomsWithBookings = new Set(data.bookings.filter(b => b.status === 'confirmed').map(b => `${b.catalog_id}-${b.room_id}`));
@@ -69,13 +68,6 @@ export function DashboardAnalytics() {
       change: '+8%',
       icon: TrendingUp,
       color: 'text-purple-500',
-    },
-    {
-      label: 'Pending Approvals',
-      value: pendingApprovals.toString(),
-      change: '-2%',
-      icon: AlertCircle,
-      color: 'text-orange-500',
     },
   ];
 

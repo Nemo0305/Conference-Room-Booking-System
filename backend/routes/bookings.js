@@ -57,6 +57,33 @@ router.get('/user/:uid', authMiddleware, async (req, res) => {
     }
 });
 
+// GET /api/bookings/availability/:catalog_id/:room_id?date=YYYY-MM-DD — booked slots (public)
+router.get('/availability/:catalog_id/:room_id', async (req, res) => {
+    const { catalog_id, room_id } = req.params;
+    const { date } = req.query; // YYYY-MM-DD
+
+    if (!date) {
+        return res.status(400).json({ error: 'date query parameter is required (YYYY-MM-DD).' });
+    }
+
+    try {
+        const [rows] = await db.query(`
+            SELECT b.start_time, b.end_time, b.status, b.purpose, u.name AS user_name, u.email, u.phone_no
+            FROM booking b
+            LEFT JOIN users u ON b.uid = u.uid
+            WHERE b.catalog_id = ? AND b.room_id = ?
+              AND b.start_date <= ? AND b.end_date >= ?
+              AND b.status != 'cancelled'
+            ORDER BY b.start_time ASC
+        `, [catalog_id, room_id, date, date]);
+
+        res.json(rows);
+    } catch (error) {
+        console.error('Error fetching availability:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
 // POST /api/bookings — create booking (protected)
 router.post('/', authMiddleware, async (req, res) => {
     const { uid, catalog_id, room_id, start_date, end_date, start_time, end_time, purpose, attendees } = req.body;
@@ -92,7 +119,7 @@ router.post('/', authMiddleware, async (req, res) => {
         const booking_id = await getNextBookingId();
         const [result] = await db.query(
             'INSERT INTO booking (booking_id, uid, catalog_id, room_id, start_date, end_date, start_time, end_time, purpose, attendees, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [booking_id, uid, catalog_id, room_id, start_date, end_date, start_time, end_time, purpose || '', attendees || 1, 'pending']
+            [booking_id, uid, catalog_id, room_id, start_date, end_date, start_time, end_time, purpose || '', attendees || 1, 'confirmed']
         );
 
         // Also create a ticket entry

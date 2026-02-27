@@ -3,7 +3,6 @@
 import { DashboardAnalytics } from '@/components/admin/dashboard/analytics';
 import { RealTimeAvailability } from '@/components/admin/dashboard/availability';
 import { RecentBookings } from '@/components/admin/dashboard/recent-bookings';
-import { PendingApprovals } from '@/components/admin/dashboard/pending-approvals';
 
 export default function AdminDashboard() {
   return (
@@ -22,10 +21,6 @@ export default function AdminDashboard() {
         <div>
           <RealTimeAvailability />
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <PendingApprovals />
       </div>
     </div>
   );

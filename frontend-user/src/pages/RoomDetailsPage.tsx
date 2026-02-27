@@ -6,10 +6,15 @@ import {
     ChalkboardTeacher,
     ProjectorScreen,
     WifiHigh,
-    SpeakerHigh
+    SpeakerHigh,
+    Clock,
+    Lock,
+    Check,
+    X,
+    Eye
 } from '@phosphor-icons/react';
-import React, { useState, useEffect } from 'react';
-import { fetchRoom, createBooking, getCurrentUser, Room } from '../lib/api';
+import React, { useState, useEffect, useCallback } from 'react';
+import { fetchRoom, createBooking, fetchRoomAvailability, getCurrentUser, Room, BookedSlot } from '../lib/api';
 import { BookingResult } from '../App';
 import LoginPage from './LoginPage';
 
@@ -19,6 +24,20 @@ interface RoomDetailsPageProps {
     onBookingSuccess: (booking: BookingResult) => void;
 }
 
+// Generate all 1-hour slots for the day (8 AM – 8 PM)
+const ALL_SLOTS = Array.from({ length: 12 }, (_, i) => {
+    const startH = 8 + i;
+    const endH = startH + 1;
+    return {
+        start: `${String(startH).padStart(2, '0')}:00:00`,
+        end: `${String(endH).padStart(2, '0')}:00:00`,
+        label: `${String(startH).padStart(2, '0')}:00 – ${String(endH).padStart(2, '0')}:00`,
+        startH,
+    };
+});
+
+type SlotStatus = 'available' | 'booked' | 'past';
+
 const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack, onBookingSuccess }) => {
     const [room, setRoom] = useState<Room | null>(null);
     const [loading, setLoading] = useState(true);
@@ -26,13 +45,19 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
     const [showLoginModal, setShowLoginModal] = useState(false);
 
     // Booking form
-    const [bookDate, setBookDate] = useState('');
-    const [startTime, setStartTime] = useState('');
-    const [endTime, setEndTime] = useState('');
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const [bookDate, setBookDate] = useState(todayStr);
+    const [startSlot, setStartSlot] = useState<number | null>(null);
+    const [endSlot, setEndSlot] = useState<number | null>(null);
     const [purpose, setPurpose] = useState('');
     const [attendees, setAttendees] = useState<number>(1);
     const [submitting, setSubmitting] = useState(false);
     const [bookResult, setBookResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
+    // Availability
+    const [bookedSlots, setBookedSlots] = useState<BookedSlot[]>([]);
+    const [loadingSlots, setLoadingSlots] = useState(false);
+    const [viewingBookedSlot, setViewingBookedSlot] = useState<number | null>(null);
 
     useEffect(() => {
         if (!roomRef) { setLoading(false); setError('No room selected'); return; }
@@ -49,8 +74,116 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
         load();
     }, [roomRef?.catalog_id, roomRef?.room_id]);
 
+    // Fetch availability when date or room changes
+    const loadAvailability = useCallback(async () => {
+        if (!roomRef || !bookDate) return;
+        setLoadingSlots(true);
+        try {
+            const slots = await fetchRoomAvailability(roomRef.catalog_id, roomRef.room_id, bookDate);
+            setBookedSlots(slots);
+        } catch (e) {
+            console.error('Failed to load availability:', e);
+            setBookedSlots([]);
+        } finally {
+            setLoadingSlots(false);
+        }
+    }, [roomRef?.catalog_id, roomRef?.room_id, bookDate]);
+
+    useEffect(() => {
+        loadAvailability();
+        // Reset selection when date changes
+        setStartSlot(null);
+        setEndSlot(null);
+        setBookResult(null);
+        setViewingBookedSlot(null);
+    }, [loadAvailability]);
+
+    // Determine slot status
+    const getSlotStatus = (slot: typeof ALL_SLOTS[0]): SlotStatus => {
+        // Check if past (only for today)
+        const isToday = bookDate === todayStr;
+        if (isToday) {
+            const now = new Date();
+            const currentHour = now.getHours();
+            const currentMinute = now.getMinutes();
+            // Slot is past if its start hour is <= current hour (can't book a slot that's already started)
+            if (slot.startH < currentHour || (slot.startH === currentHour && currentMinute > 0)) {
+                return 'past';
+            }
+        }
+
+        // Check if booked (any existing booking overlaps this slot)
+        const slotStart = slot.start;
+        const slotEnd = slot.end;
+        for (const booked of bookedSlots) {
+            // Overlap: booked.start_time < slotEnd AND booked.end_time > slotStart
+            if (booked.start_time < slotEnd && booked.end_time > slotStart) {
+                return 'booked';
+            }
+        }
+
+        return 'available';
+    };
+
+    // Find the booking that overlaps a given slot
+    const getMatchingBooking = (slot: typeof ALL_SLOTS[0]): BookedSlot | undefined => {
+        return bookedSlots.find(b => b.start_time < slot.end && b.end_time > slot.start);
+    };
+
+    const handleSlotClick = (index: number) => {
+        const status = getSlotStatus(ALL_SLOTS[index]);
+        if (status !== 'available') return;
+
+        if (startSlot === null || endSlot !== null) {
+            // Start new selection
+            setStartSlot(index);
+            setEndSlot(null);
+        } else {
+            // Set end slot
+            if (index <= startSlot) {
+                // Clicked before start — reset to this
+                setStartSlot(index);
+                setEndSlot(null);
+            } else {
+                // Check that all slots in the range are available
+                let allAvailable = true;
+                for (let i = startSlot; i <= index; i++) {
+                    if (getSlotStatus(ALL_SLOTS[i]) !== 'available') {
+                        allAvailable = false;
+                        break;
+                    }
+                }
+                if (allAvailable) {
+                    setEndSlot(index);
+                } else {
+                    // Can't select across booked/past slots — reset
+                    setStartSlot(index);
+                    setEndSlot(null);
+                }
+            }
+        }
+    };
+
+    const isSlotSelected = (index: number): boolean => {
+        if (startSlot === null) return false;
+        const end = endSlot !== null ? endSlot : startSlot;
+        return index >= startSlot && index <= end;
+    };
+
+    const getSelectedTimeRange = (): { start_time: string; end_time: string } | null => {
+        if (startSlot === null) return null;
+        const end = endSlot !== null ? endSlot : startSlot;
+        return {
+            start_time: ALL_SLOTS[startSlot].start,
+            end_time: ALL_SLOTS[end].end,
+        };
+    };
+
     const submitBookingAction = async (user: any) => {
         if (!room) return;
+        const timeRange = getSelectedTimeRange();
+        if (!timeRange) return;
+
         setSubmitting(true);
         setBookResult(null);
         try {
@@ -60,21 +193,22 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
                 room_id: room.room_id,
                 start_date: bookDate,
                 end_date: bookDate,
-                start_time: startTime,
-                end_time: endTime,
+                start_time: timeRange.start_time,
+                end_time: timeRange.end_time,
                 purpose,
                 attendees,
             });
             setBookResult({ ok: true, msg: `Booking created! ID: ${result.booking_id}` });
-            // Navigate to ticket after short delay
+            // Refresh availability
+            loadAvailability();
             setTimeout(() => {
                 onBookingSuccess({
                     booking_id: result.booking_id,
                     room_name: room.room_name,
                     location: room.location,
                     date: bookDate,
-                    start_time: startTime,
-                    end_time: endTime,
+                    start_time: timeRange.start_time,
+                    end_time: timeRange.end_time,
                     purpose,
                     attendees,
                     user_name: user.name,
@@ -122,6 +256,8 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
         'WiFi': <WifiHigh size={20} />,
         'Audio System': <SpeakerHigh size={20} />,
     };
+
+    const timeRange = getSelectedTimeRange();
 
     return (
         <div className="max-w-7xl mx-auto px-6 py-8">
@@ -206,7 +342,7 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
                 </div>
 
                 {/* Right Sidebar - Booking Card */}
-                <div className="w-full lg:w-96 shrink-0 space-y-6">
+                <div className="w-full lg:w-[420px] shrink-0 space-y-6">
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 sticky top-24">
                         <div className="mb-6">
                             <span className="text-3xl font-bold text-secondary">Free</span>
@@ -219,29 +355,163 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
                             </div>
                         )}
 
-                        <form onSubmit={handleBook} className="space-y-4">
+                        <form onSubmit={handleBook} className="space-y-5">
+                            {/* Date Picker — past dates disabled */}
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Date</label>
-                                <input type="date" value={bookDate} onChange={e => setBookDate(e.target.value)} required className="w-full p-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary" />
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Select Date</label>
+                                <input
+                                    type="date"
+                                    value={bookDate}
+                                    min={todayStr}
+                                    onChange={e => setBookDate(e.target.value)}
+                                    required
+                                    className="w-full p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary bg-slate-50 font-medium"
+                                />
+                            </div>
+
+                            {/* Time Slot Grid */}
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                                    Select Time Slots
+                                </label>
+                                <p className="text-xs text-slate-400 mb-3">
+                                    Click a start slot, then click an end slot to define your range
+                                </p>
+
+                                {loadingSlots ? (
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {Array.from({ length: 6 }).map((_, i) => (
+                                            <div key={i} className="h-12 bg-slate-100 rounded-xl animate-pulse" />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {ALL_SLOTS.map((slot, index) => {
+                                            const status = getSlotStatus(slot);
+                                            const selected = isSlotSelected(index);
+                                            const isStart = index === startSlot;
+                                            const isEnd = index === (endSlot ?? startSlot);
+
+                                            let classes = 'relative flex items-center gap-2 px-3 py-3 rounded-xl text-xs font-bold transition-all border-2 ';
+
+                                            if (status === 'past') {
+                                                classes += 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed line-through';
+                                            } else if (status === 'booked') {
+                                                classes += 'bg-rose-50 text-rose-400 border-rose-100 cursor-pointer hover:bg-rose-100';
+                                            } else if (selected) {
+                                                classes += 'bg-primary text-white border-primary shadow-lg shadow-primary/25 scale-[1.02]';
+                                            } else {
+                                                classes += 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 cursor-pointer hover:scale-[1.02] active:scale-95';
+                                            }
+
+                                            return (
+                                                <div key={slot.start} className="relative">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            if (status === 'past') return;
+                                                            if (status === 'booked') {
+                                                                setViewingBookedSlot(viewingBookedSlot === index ? null : index);
+                                                            } else {
+                                                                handleSlotClick(index);
+                                                            }
+                                                        }}
+                                                        className={classes}
+                                                    >
+                                                        {status === 'past' && <Clock size={14} />}
+                                                        {status === 'booked' && (
+                                                            <>
+                                                                <Lock size={14} />
+                                                                <span>{slot.label}</span>
+                                                                <Eye size={14} className="ml-auto opacity-70" />
+                                                            </>
+                                                        )}
+                                                        {status === 'available' && !selected && <Clock size={14} />}
+                                                        {selected && <Check size={14} weight="bold" />}
+                                                        {status !== 'booked' && <span>{slot.label}</span>}
+                                                        {isStart && selected && (
+                                                            <span className="absolute -top-1.5 -right-1.5 bg-primary text-white text-[8px] font-black px-1.5 py-0.5 rounded-full shadow">START</span>
+                                                        )}
+                                                        {isEnd && endSlot !== null && selected && (
+                                                            <span className="absolute -bottom-1.5 -right-1.5 bg-primary text-white text-[8px] font-black px-1.5 py-0.5 rounded-full shadow">END</span>
+                                                        )}
+                                                    </button>
+
+                                                    {/* Booked slot details popup */}
+                                                    {status === 'booked' && viewingBookedSlot === index && (() => {
+                                                        const mb = getMatchingBooking(slot);
+                                                        if (!mb) return null;
+                                                        return (
+                                                            <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border-2 border-rose-200 rounded-xl shadow-xl p-4 animate-fade-in">
+                                                                <div className="flex justify-between items-start mb-2">
+                                                                    <span className="text-xs font-black text-rose-500 uppercase tracking-wide">Booked</span>
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); setViewingBookedSlot(null); }}
+                                                                        className="text-slate-400 hover:text-slate-600"
+                                                                    >
+                                                                        <X size={14} />
+                                                                    </button>
+                                                                </div>
+                                                                <p className="text-sm font-bold text-slate-800">{mb.user_name || 'Unknown'}</p>
+                                                                {mb.email && <p className="text-xs text-slate-500">{mb.email}</p>}
+                                                                {mb.phone_no && <p className="text-xs text-slate-500">📞 {mb.phone_no}</p>}
+                                                                {mb.purpose && <p className="text-xs text-slate-600 mt-1">📋 {mb.purpose}</p>}
+                                                                <p className="text-xs text-slate-400 mt-1">
+                                                                    {mb.start_time.slice(0, 5)} – {mb.end_time.slice(0, 5)}
+                                                                </p>
+                                                            </div>
+                                                        );
+                                                    })()}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+
+                                {/* Legend */}
+                                <div className="flex gap-4 mt-3 justify-center">
+                                    <div className="flex items-center gap-1.5">
+                                        <div className="w-3 h-3 rounded bg-emerald-200 border border-emerald-300" />
+                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Available</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <div className="w-3 h-3 rounded bg-rose-200 border border-rose-300" />
+                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Booked</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <div className="w-3 h-3 rounded bg-slate-200 border border-slate-300" />
+                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Past</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Selected range summary */}
+                            {timeRange && (
+                                <div className="bg-primary/5 border border-primary/20 p-4 rounded-xl">
+                                    <p className="text-xs font-bold text-primary uppercase tracking-wide mb-1">Selected Time</p>
+                                    <p className="text-lg font-black text-slate-900">
+                                        {timeRange.start_time.slice(0, 5)} – {timeRange.end_time.slice(0, 5)}
+                                    </p>
+                                    <p className="text-xs text-slate-500 mt-1">
+                                        {((endSlot ?? startSlot!) - startSlot! + 1)} hour(s) on {new Date(bookDate + 'T00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                                    </p>
+                                </div>
+                            )}
+
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Attendees</label>
+                                <input type="number" min="1" value={attendees} onChange={e => setAttendees(parseInt(e.target.value) || 1)} required className="w-full p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary bg-slate-50" />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Start Time</label>
-                                <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} required className="w-full p-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary" />
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Purpose</label>
+                                <textarea rows={3} value={purpose} onChange={e => setPurpose(e.target.value)} className="w-full p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary bg-slate-50" placeholder="Meeting purpose..." />
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">End Time</label>
-                                <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} required className="w-full p-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Attendees</label>
-                                <input type="number" min="1" value={attendees} onChange={e => setAttendees(parseInt(e.target.value) || 1)} required className="w-full p-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Purpose</label>
-                                <textarea rows={3} value={purpose} onChange={e => setPurpose(e.target.value)} className="w-full p-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Meeting purpose..." />
-                            </div>
-                            <button type="submit" disabled={submitting} className="w-full py-4 bg-secondary hover:bg-secondary-dark text-white text-lg font-bold rounded-xl shadow-lg shadow-blue-200 transition-all active:scale-[0.98] disabled:opacity-60">
-                                {submitting ? 'Booking...' : 'Book This Space'}
+                            <button
+                                type="submit"
+                                disabled={submitting || !timeRange}
+                                className="w-full py-4 bg-secondary hover:bg-secondary-dark text-white text-lg font-bold rounded-xl shadow-lg shadow-blue-200 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                                {submitting ? 'Booking...' : !timeRange ? 'Select a time slot' : 'Book This Space'}
                             </button>
                         </form>
 

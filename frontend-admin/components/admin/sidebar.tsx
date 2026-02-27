@@ -66,8 +66,6 @@ const navigationItems = [
   { label: 'Rooms', href: '/admin/rooms', icon: Building2 },              // Route: /admin/rooms
   { label: 'Users', href: '/admin/users', icon: Users },                  // Route: /admin/users
   { label: 'Bookings', href: '/admin/bookings', icon: Calendar },         // Route: /admin/bookings
-  { label: 'Approvals', href: '/admin/approvals', icon: CheckCircle },    // Route: /admin/approvals
-  { label: 'Cancellations', href: '/admin/cancellations', icon: XCircle },// Route: /admin/cancellations
   { label: 'Reports', href: '/admin/reports', icon: BarChart3 },          // Route: /admin/reports
   { label: 'Notifications', href: '/admin/notifications', icon: Bell },   // Route: /admin/notifications
   { label: 'Settings', href: '/admin/settings', icon: Settings },         // Route: /admin/settings
