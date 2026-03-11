@@ -1,3 +1,29 @@
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * NOTIFICATION ROUTES
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Purpose: Manage in-app notifications for authenticated users.
+ *          Also proactively creates booking reminder notifications when
+ *          fetching, to alert users of upcoming meetings.
+ *
+ * Routes:
+ *  - GET /api/notifications            (Protected) Get all notifications for the current user
+ *  - PUT /api/notifications/:id/read   (Protected) Mark a single notification as read
+ *  - PUT /api/notifications/read-all   (Protected) Mark all notifications as read
+ *
+ * Side Effects on GET:
+ *  - Checks for confirmed bookings starting within the current day
+ *  - Creates a 'reminder' notification if one does not already exist
+ *  - Sends an email reminder to the user if their email is available
+ *
+ * Authorization:
+ *  - All routes require a valid JWT token via authMiddleware
+ *  - Users can only access and modify their own notifications
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
 const express = require('express');
 const Notification = require('../models/Notification');
 const { authMiddleware } = require('../middleware/auth');
@@ -9,7 +35,37 @@ const router = express.Router();
 const Booking = require('../models/Booking');
 const Room = require('../models/Room');
 
-// GET all notifications for current user
+/**
+ * GET /api/notifications (PROTECTED)
+ *
+ * Purpose: Retrieve all notifications for the currently authenticated user.
+ *          As a side effect, this route also checks for any upcoming meetings
+ *          today and auto-creates reminder notifications if they don't exist yet.
+ *
+ * Side Effects (proactive reminders):
+ *  1. Queries confirmed bookings for the current user on today's date.
+ *  2. For each upcoming booking without an existing reminder, creates one.
+ *  3. Optionally sends an email reminder if req.user.email is available.
+ *
+ * Requirements:
+ *  - Valid JWT token (authMiddleware)
+ *
+ * Success Response (200):
+ *  [
+ *    {
+ *      "_id": "...",
+ *      "uid": "U-001",
+ *      "title": "Booking Cancelled",
+ *      "message": "Your booking has been cancelled.",
+ *      "type": "booking",
+ *      "isRead": false,
+ *      "createdAt": "2024-03-10T14:30:00Z"
+ *    },
+ *    ...
+ *  ]
+ *
+ * @returns {Array<Notification>} Up to 50 most recent notifications (newest first)
+ */
 router.get('/', authMiddleware, async (req, res) => {
     try {
         // Proactively check for upcoming bookings in the next 1 hour
@@ -65,7 +121,25 @@ router.get('/', authMiddleware, async (req, res) => {
     }
 });
 
-// Mark single notification as read
+/**
+ * PUT /api/notifications/:id/read (PROTECTED)
+ *
+ * Purpose: Mark a single notification as read by its MongoDB document ID.
+ *          Only the owner of the notification can mark it as read
+ *          (enforced via matching uid in the query).
+ *
+ * URL Parameters:
+ *  - id: MongoDB ObjectId of the notification (e.g., "65f1a2b3c4d5e6f7a8b9c0d1")
+ *
+ * Requirements:
+ *  - Valid JWT token (authMiddleware)
+ *
+ * Success Response (200): Returns the updated notification document.
+ *
+ * Error Responses:
+ *  - 404: Notification not found or does not belong to the current user
+ *  - 500: Server error
+ */
 router.put('/:id/read', authMiddleware, async (req, res) => {
     try {
         const notification = await Notification.findOneAndUpdate(
@@ -83,7 +157,21 @@ router.put('/:id/read', authMiddleware, async (req, res) => {
     }
 });
 
-// Mark all as read
+/**
+ * PUT /api/notifications/read-all (PROTECTED)
+ *
+ * Purpose: Batch-mark ALL unread notifications for the current user as read.
+ *          More efficient than calling /:id/read for each notification individually.
+ *
+ * Requirements:
+ *  - Valid JWT token (authMiddleware)
+ *
+ * Success Response (200):
+ *  { "message": "All notifications marked as read" }
+ *
+ * Error Responses:
+ *  - 500: Server error
+ */
 router.put('/read-all', authMiddleware, async (req, res) => {
     try {
         await Notification.updateMany(

@@ -231,7 +231,7 @@ export const createBooking = async (data: {
     start_time?: string; end_time?: string; purpose?: string; attendees?: number;
     selected_dates?: string;
     per_date_choices?: { date: string; slots: string[] }[];
-}): Promise<{ message: string; booking_id: string }> => {
+}): Promise<{ message: string; booking_id: string; ticket_id?: string }> => {
     const res = await fetch(`${API_URL}/bookings`, {
         method: 'POST',
         headers: authHeaders(),
@@ -251,6 +251,17 @@ export const fetchUserBookings = async (uid: string): Promise<Booking[]> => {
     if (!res.ok) {
         handleAuthError(res);
         throw new Error('Failed to fetch your bookings');
+    }
+    return res.json();
+};
+
+export const fetchAllBookings = async (): Promise<Booking[]> => {
+    const res = await fetch(`${API_URL}/bookings/all`, {
+        headers: authHeaders(),
+    });
+    if (!res.ok) {
+        handleAuthError(res);
+        throw new Error('Failed to fetch all bookings');
     }
     return res.json();
 };

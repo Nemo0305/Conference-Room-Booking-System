@@ -31,6 +31,8 @@ const Room = require('../models/Room');
 const { authMiddleware, adminOnly } = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
+const { validate } = require('../middleware/validate');
+const { roomSchema, updateRoomSchema } = require('../schemas/room');
 
 // ┌─────────────────────────────────────────────────────────────────────────┐
 // │ MULTER CONFIGURATION: Setup file storage for room images                │
@@ -229,16 +231,11 @@ router.get('/:catalog_id/:room_id', async (req, res) => {
  *  - 401/403: Missing token or insufficient permissions
  *  - 500: Server error
  */
-router.post('/', authMiddleware, adminOnly, async (req, res) => {
+router.post('/', authMiddleware, adminOnly, validate(roomSchema), async (req, res) => {
     const { 
         catalog_id, room_id, room_name, capacity, location, amenities, 
         status, floor_no, room_number, availability, image_url 
     } = req.body;
-
-    // Validate required fields
-    if (!room_name) {
-        return res.status(400).json({ error: 'room_name is required.' });
-    }
 
     try {
         // Create new room with provided/auto-generated IDs
@@ -294,7 +291,7 @@ router.post('/', authMiddleware, adminOnly, async (req, res) => {
  *  - 401/403: Missing token or insufficient permissions
  *  - 500: Server error
  */
-router.put('/:catalog_id/:room_id', authMiddleware, adminOnly, async (req, res) => {
+router.put('/:catalog_id/:room_id', authMiddleware, adminOnly, validate(updateRoomSchema), async (req, res) => {
     const { catalog_id, room_id } = req.params;
     const { 
         room_name, capacity, location, amenities, status, 

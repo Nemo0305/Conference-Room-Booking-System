@@ -16,9 +16,11 @@ import { getDirectImageUrl } from '../lib/imageUtils';
 interface QuickAccessProps {
     onViewAvailableToday?: () => void;
     onSearch?: () => void;
+    onViewFavorites?: () => void;
+    onViewActivity?: () => void;
 }
 
-const QuickAccess: React.FC<QuickAccessProps> = ({ onViewAvailableToday, onSearch }) => {
+const QuickAccess: React.FC<QuickAccessProps> = ({ onViewAvailableToday, onSearch, onViewFavorites, onViewActivity }) => {
     // State to toggle stars
     const [favorites, setFavorites] = useState<{ [key: number]: boolean }>({ 0: true, 1: true, 2: true });
     const [location, setLocation] = useState('All Locations');
@@ -159,7 +161,7 @@ const QuickAccess: React.FC<QuickAccessProps> = ({ onViewAvailableToday, onSearc
                                 </div>
                                 <h3 className="text-lg font-bold text-slate-800">Favorite Rooms</h3>
                             </div>
-                            <a href="#" className="text-primary text-sm font-medium hover:underline">View All</a>
+                            <button onClick={onViewFavorites} className="text-primary text-sm font-medium hover:underline">View All</button>
                         </div>
 
                         <div className="flex flex-col gap-4">
@@ -204,7 +206,7 @@ const QuickAccess: React.FC<QuickAccessProps> = ({ onViewAvailableToday, onSearc
                                 </div>
                                 <h3 className="text-lg font-bold text-slate-800">Recent Activity</h3>
                             </div>
-                            <a href="#" className="text-primary text-sm font-medium hover:underline">View All</a>
+                            <button onClick={onViewActivity} className="text-primary text-sm font-medium hover:underline">View All</button>
                         </div>
 
                         <div className="relative pl-2">

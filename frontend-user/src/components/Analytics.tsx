@@ -1,6 +1,10 @@
 import { ChartBar, Lightbulb, MapPin, Buildings, Monitor, Briefcase } from '@phosphor-icons/react';
 
-const Analytics = () => {
+interface AnalyticsProps {
+    onNavigate?: (view: string) => void;
+}
+
+const Analytics: React.FC<AnalyticsProps> = ({ onNavigate }) => {
     const hours = [
         { time: '9:00 AM - 10:00 AM', count: 45, width: '90%' },
         { time: '10:00 AM - 11:00 AM', count: 42, width: '85%' },
@@ -126,7 +130,10 @@ const Analytics = () => {
                         </div>
 
                         <div className="mt-8">
-                            <button className="w-full bg-primary hover:bg-primary-dark text-white font-semibold py-3 rounded-lg transition-colors">
+                            <button 
+                                onClick={() => onNavigate && onNavigate('search')}
+                                className="w-full bg-primary hover:bg-primary-dark text-white font-semibold py-3 rounded-lg transition-colors"
+                            >
                                 Explore All Locations
                             </button>
                         </div>

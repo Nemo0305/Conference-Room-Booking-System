@@ -34,6 +34,8 @@ export interface BookingResult {
     attendees?: number;
     user_name?: string;
     email?: string;
+    status?: string;
+    ticket_id?: string;
 }
 
 /**
@@ -156,11 +158,13 @@ function App() {
                             onReserveClick={() => navigateTo('search')}
                             onCalendarClick={() => navigateTo('calendar')}
                         />
-                        <Stats />
-                        <Analytics />
+                        <Stats onNavigate={navigateTo} />
+                        <Analytics onNavigate={navigateTo} />
                         <QuickAccess
                             onViewAvailableToday={() => navigateTo('search')}
                             onSearch={() => navigateTo('search')}
+                            onViewFavorites={() => navigateTo('search')}
+                            onViewActivity={() => navigateTo('my-bookings')}
                         />
                     </>
                 );
@@ -183,14 +187,19 @@ function App() {
             case 'help':
                 return <HelpCenterPage onNavigate={navigateTo} onAlert={(msg, type) => alert(`[${type}] ${msg}`)} />;
             case 'profile':
-                return <ProfilePage />;
+                return <ProfilePage onViewBookings={() => navigateTo('my-bookings')} />;
             default:
                 return (
                     <>
                         <Hero />
-                        <Stats />
-                        <Analytics />
-                        <QuickAccess />
+                        <Stats onNavigate={navigateTo} />
+                        <Analytics onNavigate={navigateTo} />
+                        <QuickAccess
+                            onViewAvailableToday={() => navigateTo('search')}
+                            onSearch={() => navigateTo('search')}
+                            onViewFavorites={() => navigateTo('search')}
+                            onViewActivity={() => navigateTo('my-bookings')}
+                        />
                     </>
                 );
         }
@@ -202,7 +211,7 @@ function App() {
             <main className="flex-grow">
                 {renderContent()}
             </main>
-            <Footer />
+            <Footer onNavigate={navigateTo} />
         </div>
     )
 }

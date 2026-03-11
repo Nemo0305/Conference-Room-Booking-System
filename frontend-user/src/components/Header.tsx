@@ -1,22 +1,64 @@
+/**
+ * @file Header.tsx
+ * @description Sticky top navigation bar for the user-facing application.
+ *
+ * Features:
+ *  - Logo with home navigation
+ *  - Primary navigation links (Home, Reserve, Calendar, My Bookings, Help)
+ *  - Login button for unauthenticated users
+ *  - Real-time notification bell with badge and dropdown (authenticated users)
+ *  - User profile button and Sign Out button (authenticated users)
+ *
+ * Notification Polling:
+ *  - Fetches notifications from `/api/notifications` on mount
+ *  - Re-fetches every 30 seconds via `setInterval` to surface new alerts
+ *  - Polling is automatically cleared when the user logs out
+ *
+ * @module components/Header
+ */
+
 import { Buildings, Bell, User, CirclesFour, MagnifyingGlass, CalendarBlank, Ticket, SignOut } from '@phosphor-icons/react';
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { fetchNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '../lib/api';
 
+/**
+ * Props accepted by the Header component.
+ */
 interface HeaderProps {
+    /** The currently active view/page identifier (e.g., 'home', 'search'). */
     currentView: string;
+    /** Callback to switch the active view. */
     onNavigate: (view: string) => void;
 }
 
+/**
+ * Shape of a single in-app notification object returned from the backend.
+ */
 interface NotificationItem {
+    /** MongoDB ObjectId as a string, used for mutation calls. */
     _id: string;
+    /** Short heading shown at the top of the notification item. */
     title: string;
+    /** Full notification text describing the event. */
     message: string;
+    /** Category of the notification: 'booking', 'system', or 'reminder'. */
     type: string;
+    /** Whether the user has already seen/acknowledged this notification. */
     isRead: boolean;
+    /** ISO 8601 timestamp of when the notification was created. */
     createdAt: string;
 }
 
+/**
+ * Header component — the global sticky navigation bar.
+ *
+ * Renders navigation links, a real-time notification bell, and user actions.
+ * When the user is not logged in, only a "Log In" button is shown.
+ *
+ * @param {HeaderProps} props - Component props.
+ * @returns {JSX.Element} The rendered sticky header element.
+ */
 const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
     const [showNotifications, setShowNotifications] = useState(false);
     const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -30,6 +72,13 @@ const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
         { id: 'my-bookings', label: 'My Bookings', icon: <Ticket /> },
     ];
 
+    /**
+     * Fetches the latest notifications for the authenticated user from the API
+     * and updates the local state. Silently logs any network errors.
+     *
+     * @async
+     * @returns {Promise<void>}
+     */
     const getNotifications = async () => {
         try {
             const data = await fetchNotifications();
@@ -61,6 +110,13 @@ const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
         };
     }, []);
 
+    /**
+     * Marks all unread notifications as read using a single API batch call.
+     * Updates local state optimistically to avoid a re-fetch.
+     *
+     * @async
+     * @returns {Promise<void>}
+     */
     const handleMarkAllRead = async () => {
         try {
             await markAllNotificationsAsRead();
@@ -70,6 +126,14 @@ const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
         }
     };
 
+    /**
+     * Marks a single notification as read by its MongoDB document ID.
+     * Updates local state optimistically to immediately hide the unread indicator.
+     *
+     * @async
+     * @param {string} id - The MongoDB `_id` of the notification to mark as read.
+     * @returns {Promise<void>}
+     */
     const handleMarkRead = async (id: string) => {
         try {
             await markNotificationAsRead(id);
@@ -79,6 +143,16 @@ const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
         }
     };
 
+    /**
+     * Formats an ISO 8601 date string into a human-readable relative time label.
+     *
+     * @example
+     * formatTime('2024-03-10T09:00:00Z') // → "5m ago"
+     * formatTime('2024-03-09T09:00:00Z') // → "1d ago"
+     *
+     * @param {string} dateStr - An ISO 8601 date string from the notification.
+     * @returns {string} A short relative time string (e.g., "Just now", "3h ago", "2d ago").
+     */
     const formatTime = (dateStr: string) => {
         const date = new Date(dateStr);
         const now = new Date();

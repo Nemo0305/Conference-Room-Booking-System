@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../lib/api';
-import { Buildings, EnvelopeSimple, Lock, User, Phone, Briefcase, X, UserCircleGear, Eye, EyeSlash } from '@phosphor-icons/react';
+import { Buildings, EnvelopeSimple, Lock, User, Phone, Briefcase, X, Eye, EyeSlash } from '@phosphor-icons/react';
 
 interface LoginPageProps {
     onSuccess: () => void;
@@ -30,7 +30,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onSuccess, onNavigate, isModal, o
     const [regPassword, setRegPassword] = useState('');
     const [regDept, setRegDept] = useState('');
     const [regPhone, setRegPhone] = useState('');
-    const [regRole, setRegRole] = useState('user');
+    const [regRole] = useState('user');
     const [showRegPassword, setShowRegPassword] = useState(false);
 
     const handleLogin = async (e: React.FormEvent) => {
@@ -274,13 +274,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onSuccess, onNavigate, isModal, o
                         <Phone size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input type="tel" placeholder="Phone number" value={regPhone} onChange={e => setRegPhone(e.target.value)} required className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm" />
                     </div>
-                    <div className="relative">
-                        <UserCircleGear size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <select value={regRole} onChange={e => setRegRole(e.target.value)} className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm appearance-none bg-white">
-                            <option value="user">User</option>
-                            <option value="admin">Admin</option>
-                        </select>
-                    </div>
+
                     <button
                         type="submit"
                         disabled={loading}

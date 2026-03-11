@@ -1,6 +1,10 @@
 import { FacebookLogo, TwitterLogo, LinkedinLogo, InstagramLogo } from '@phosphor-icons/react';
 
-const Footer = () => {
+interface FooterProps {
+    onNavigate?: (view: string) => void;
+}
+
+const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
     const currentYear = new Date().getFullYear();
 
     return (
@@ -33,10 +37,10 @@ const Footer = () => {
                     <div>
                         <h4 className="font-bold text-slate-50 mb-4">Quick Links</h4>
                         <ul className="space-y-3">
-                            <li><a href="#" className="text-slate-400 hover:text-primary transition-colors text-sm">Browse Rooms</a></li>
-                            <li><a href="#" className="text-slate-400 hover:text-primary transition-colors text-sm">My Bookings</a></li>
-                            <li><a href="#" className="text-slate-400 hover:text-primary transition-colors text-sm">Calendar</a></li>
-                            <li><a href="#" className="text-slate-400 hover:text-primary transition-colors text-sm">My Profile</a></li>
+                            <li><button onClick={() => onNavigate?.('search')} className="text-slate-400 hover:text-primary transition-colors text-sm text-left w-full disabled:opacity-50">Browse Rooms</button></li>
+                            <li><button onClick={() => onNavigate?.('my-bookings')} className="text-slate-400 hover:text-primary transition-colors text-sm text-left w-full disabled:opacity-50">My Bookings</button></li>
+                            <li><button onClick={() => onNavigate?.('calendar')} className="text-slate-400 hover:text-primary transition-colors text-sm text-left w-full disabled:opacity-50">Calendar</button></li>
+                            <li><button onClick={() => onNavigate?.('profile')} className="text-slate-400 hover:text-primary transition-colors text-sm text-left w-full disabled:opacity-50">My Profile</button></li>
                         </ul>
                     </div>
 
@@ -44,10 +48,10 @@ const Footer = () => {
                     <div>
                         <h4 className="font-bold text-slate-50 mb-4">Support</h4>
                         <ul className="space-y-3">
-                            <li><a href="#" className="text-slate-400 hover:text-primary transition-colors text-sm">Help Center</a></li>
-                            <li><a href="#" className="text-slate-400 hover:text-primary transition-colors text-sm">Contact Us</a></li>
-                            <li><a href="#" className="text-slate-400 hover:text-primary transition-colors text-sm">FAQs</a></li>
-                            <li><a href="#" className="text-slate-400 hover:text-primary transition-colors text-sm">Documentation</a></li>
+                            <li><button onClick={() => onNavigate?.('help')} className="text-slate-400 hover:text-primary transition-colors text-sm text-left w-full disabled:opacity-50">Help Center</button></li>
+                            <li><button onClick={() => onNavigate?.('help')} className="text-slate-400 hover:text-primary transition-colors text-sm text-left w-full disabled:opacity-50">Contact Us</button></li>
+                            <li><button onClick={() => onNavigate?.('help')} className="text-slate-400 hover:text-primary transition-colors text-sm text-left w-full disabled:opacity-50">FAQs</button></li>
+                            <li><button onClick={() => onNavigate?.('help')} className="text-slate-400 hover:text-primary transition-colors text-sm text-left w-full disabled:opacity-50">Documentation</button></li>
                         </ul>
                     </div>
 
@@ -55,10 +59,10 @@ const Footer = () => {
                     <div>
                         <h4 className="font-bold text-slate-50 mb-4">Legal</h4>
                         <ul className="space-y-3">
-                            <li><a href="#" className="text-slate-400 hover:text-primary transition-colors text-sm">Privacy Policy</a></li>
-                            <li><a href="#" className="text-slate-400 hover:text-primary transition-colors text-sm">Terms of Service</a></li>
-                            <li><a href="#" className="text-slate-400 hover:text-primary transition-colors text-sm">Cookie Policy</a></li>
-                            <li><a href="#" className="text-slate-400 hover:text-primary transition-colors text-sm">Security</a></li>
+                            <li><button onClick={() => onNavigate?.('home')} className="text-slate-400 hover:text-primary transition-colors text-sm text-left w-full disabled:opacity-50">Privacy Policy</button></li>
+                            <li><button onClick={() => onNavigate?.('home')} className="text-slate-400 hover:text-primary transition-colors text-sm text-left w-full disabled:opacity-50">Terms of Service</button></li>
+                            <li><button onClick={() => onNavigate?.('home')} className="text-slate-400 hover:text-primary transition-colors text-sm text-left w-full disabled:opacity-50">Cookie Policy</button></li>
+                            <li><button onClick={() => onNavigate?.('home')} className="text-slate-400 hover:text-primary transition-colors text-sm text-left w-full disabled:opacity-50">Security</button></li>
                         </ul>
                     </div>
                 </div>

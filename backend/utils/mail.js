@@ -72,11 +72,15 @@ const sendOtpEmail = async (toEmail, otp, type = 'registration') => {
     };
 
     try {
+        console.log(`[MAIL] Transporter ready: ${currentTransporter.options.service}`);
         const info = await currentTransporter.sendMail(mailOptions);
         console.log(`[MAIL] Success! MessageID: ${info.messageId}`);
+        console.log(`[MAIL] Response: ${info.response}`);
         return true;
     } catch (error) {
-        console.error('[MAIL] CRITICAL ERROR:', error);
+        console.error('[MAIL] CRITICAL ERROR during sendMail:', error);
+        console.error('[MAIL] Error code:', error.code);
+        console.error('[MAIL] SMTP Response:', error.response);
         return false;
     }
 };

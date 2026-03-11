@@ -8,7 +8,7 @@ import {
     Eye
 } from '@phosphor-icons/react';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { fetchUserBookings, getCurrentUser, Booking, fetchRooms, createBooking, Room, fetchRoomAvailability, BookedSlot } from '../lib/api';
+import { fetchAllBookings, getCurrentUser, Booking, fetchRooms, createBooking, Room, fetchRoomAvailability, BookedSlot } from '../lib/api';
 import LoginPage from './LoginPage';
 
 
@@ -71,7 +71,7 @@ const CalendarPage: React.FC<CalendarPageProps> = () => {
         if (!user) return;
         try {
             const [bookings, rooms] = await Promise.all([
-                fetchUserBookings(user.uid),
+                fetchAllBookings(),
                 fetchRooms()
             ]);
 

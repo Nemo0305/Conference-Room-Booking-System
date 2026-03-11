@@ -31,6 +31,15 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const { authMiddleware } = require('../middleware/auth');
 const { sendOtpEmail } = require('../utils/mail');
+const { validate } = require('../middleware/validate');
+const {
+    registerSchema,
+    loginSchema,
+    forgotPasswordSchema,
+    verifyOtpSchema,
+    resetPasswordSchema,
+    changePasswordSchema,
+} = require('../schemas/auth');
 
 const router = express.Router();
 
@@ -64,14 +73,8 @@ const router = express.Router();
  *  - 409: Email already registered
  *  - 500: Server error
  */
-router.post('/register', async (req, res) => {
-    const { uid, name, email: rawEmail, password, dept, phone_no, userrole_id } = req.body;
-    const email = rawEmail?.toLowerCase(); // Normalize email to lowercase
-
-    // Validate all required fields are present
-    if (!uid || !name || !email || !password || !dept || !phone_no) {
-        return res.status(400).json({ error: 'All fields are required.' });
-    }
+router.post('/register', validate(registerSchema), async (req, res) => {
+    const { uid, name, email, password, dept, phone_no } = req.body; // Explicitly ignore userrole_id from body
 
     try {
         // Check if email already registered
@@ -82,7 +85,7 @@ router.post('/register', async (req, res) => {
 
         // Hash password with 10 salt rounds (industry standard)
         const hashedPassword = await bcrypt.hash(password, 10);
-        const role = userrole_id || 'user'; // Default to 'user' role
+        const role = 'user'; // Hardcode all public registrations to 'user' role
 
         // Generate 6-digit OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -169,15 +172,9 @@ router.post('/register', async (req, res) => {
  *  - Include token in Authorization header for protected routes
  *  - Header format: "Authorization: Bearer <token>"
  */
-router.post('/login', async (req, res) => {
-    const { email: rawEmail, password } = req.body;
-    const email = rawEmail?.toLowerCase(); // Normalize email to lowercase
+router.post('/login', validate(loginSchema), async (req, res) => {
+    const { email, password } = req.body;
     console.log(`[AUTH] Login attempt for email: ${email}`);
-
-    // Validate both email and password provided
-    if (!email || !password) {
-        return res.status(400).json({ error: 'Email and password are required.' });
-    }
 
     try {
         // Find user by email in database
@@ -272,12 +269,8 @@ router.get('/me', authMiddleware, async (req, res) => {
  * 
  * Purpose: Allows an authenticated user to change their password
  */
-router.put('/change-password', authMiddleware, async (req, res) => {
+router.put('/change-password', authMiddleware, validate(changePasswordSchema), async (req, res) => {
     const { currentPassword, newPassword } = req.body;
-
-    if (!currentPassword || !newPassword) {
-        return res.status(400).json({ error: 'Current and new passwords are required.' });
-    }
 
     try {
         const user = await User.findOne({ uid: req.user.uid });
@@ -306,13 +299,8 @@ router.put('/change-password', authMiddleware, async (req, res) => {
  * 
  * Purpose: Generates a reset token for a user who forgot their password
  */
-router.post('/forgot-password', async (req, res) => {
-    const { email: rawEmail } = req.body;
-    const email = rawEmail?.toLowerCase();
-
-    if (!email) {
-        return res.status(400).json({ error: 'Email is required.' });
-    }
+router.post('/forgot-password', validate(forgotPasswordSchema), async (req, res) => {
+    const { email } = req.body;
 
     try {
         const user = await User.findOne({ email });
@@ -348,13 +336,8 @@ router.post('/forgot-password', async (req, res) => {
  * 
  * Purpose: Verifies the OTP sent during registration
  */
-router.post('/verify-otp', async (req, res) => {
-    const { email: rawEmail, otp } = req.body;
-    const email = rawEmail?.toLowerCase();
-
-    if (!email || !otp) {
-        return res.status(400).json({ error: 'Email and OTP are required.' });
-    }
+router.post('/verify-otp', validate(verifyOtpSchema), async (req, res) => {
+    const { email, otp } = req.body;
 
     try {
         const user = await User.findOne({ 
@@ -409,13 +392,8 @@ router.post('/resend-otp', async (req, res) => {
  * 
  * Purpose: Resets a user's password using a valid reset token
  */
-router.post('/reset-password', async (req, res) => {
-    const { email: rawEmail, otp, newPassword } = req.body;
-    const email = rawEmail?.toLowerCase();
-
-    if (!email || !otp || !newPassword) {
-        return res.status(400).json({ error: 'Email, OTP and new password are required.' });
-    }
+router.post('/reset-password', validate(resetPasswordSchema), async (req, res) => {
+    const { email, otp, newPassword } = req.body;
 
     try {
         const user = await User.findOne({

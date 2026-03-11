@@ -1,3 +1,25 @@
+/**
+ * @file ProfilePage.tsx
+ * @description User profile page for the user-facing application.
+ *
+ * Features:
+ *  - Displays the user's name, role, department, email, and phone number.
+ *  - Shows booking statistics (total, confirmed, pending).
+ *  - Allows editing of name, department, and phone number.
+ *  - Provides a form to change the account password inline.
+ *  - Includes a "Sign Out" button at the bottom.
+ *
+ * Data Flow:
+ *  - On mount, fetches the full user profile from `GET /api/users/:uid`
+ *    and the user's bookings from `GET /api/bookings?uid=...`.
+ *  - Profile edits call `PUT /api/users/:uid`.
+ *  - Password changes call `PUT /api/auth/change-password`.
+ *  - After a successful profile save, the `localStorage` user object is
+ *    updated so the Header immediately reflects the new name.
+ *
+ * @module pages/ProfilePage
+ */
+
 import {
     Envelope,
     Phone,
@@ -7,25 +29,52 @@ import {
     SignOut,
     PencilSimple,
     Check,
-    X
+    X,
+    CalendarBlank,
+    ArrowRight
 } from '@phosphor-icons/react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { fetchUserProfile, updateUserProfile, fetchUserBookings, User } from '../lib/api';
 
-const ProfilePage = () => {
-    const { user: authUser, logout } = useAuth();
-    const [profile, setProfile] = useState<User | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [editing, setEditing] = useState(false);
-    const [saving, setSaving] = useState(false);
-    const [editForm, setEditForm] = useState({ name: '', dept: '', phone_no: '' });
-    const [saveMsg, setSaveMsg] = useState<{ ok: boolean; msg: string } | null>(null);
-    const [stats, setStats] = useState({ total: 0, pending: 0, confirmed: 0 });
+/**
+ * ProfilePage — the authenticated user's personal settings and stats page.
+ *
+ * Renders a two-column layout with a sticky profile card on the left and
+ * an editable details panel, booking statistics, and security settings on
+ * the right.
+ *
+ * @returns {JSX.Element} The rendered profile page, or a spinner while loading.
+ */
+interface ProfilePageProps {
+    onViewBookings: () => void;
+}
 
+const ProfilePage: React.FC<ProfilePageProps> = ({ onViewBookings }) => {
+    /** Auth context: provides the currently logged-in user object and logout function. */
+    const { user: authUser, logout } = useAuth();
+    /** Full user profile object loaded from the backend (may differ from JWT-based authUser). */
+    const [profile, setProfile] = useState<User | null>(null);
+    /** Whether the profile data is currently being fetched. */
+    const [loading, setLoading] = useState(true);
+    /** Whether the profile input fields are unlocked for editing. */
+    const [editing, setEditing] = useState(false);
+    /** Whether a profile save request is in-flight. */
+    const [saving, setSaving] = useState(false);
+    /** Mutable form data for the inline profile editor. */
+    const [editForm, setEditForm] = useState({ name: '', dept: '', phone_no: '' });
+    /** Feedback message to display after a save attempt (success or error). */
+    const [saveMsg, setSaveMsg] = useState<{ ok: boolean; msg: string } | null>(null);
+    /** Aggregated booking counts derived from the user's booking history. */
+    const [stats, setStats] = useState({ total: 0 });
+
+    /** Whether the inline change-password form is visible. */
     const [showPwForm, setShowPwForm] = useState(false);
+    /** Input values for the password change form. */
     const [pwForm, setPwForm] = useState({ current: '', new: '', confirm: '' });
+    /** Whether a password change request is in-flight. */
     const [pwLoading, setPwLoading] = useState(false);
+    /** Feedback message to display after a password change attempt. */
     const [pwMsg, setPwMsg] = useState<{ ok: boolean; msg: string } | null>(null);
 
     useEffect(() => {
@@ -40,8 +89,6 @@ const ProfilePage = () => {
                 setEditForm({ name: p.name, dept: p.dept, phone_no: p.phone_no });
                 setStats({
                     total: bookings.length,
-                    pending: bookings.filter(b => b.status === 'pending').length,
-                    confirmed: bookings.filter(b => b.status === 'confirmed').length,
                 });
             } catch {
                 // fallback to auth user
@@ -54,6 +101,21 @@ const ProfilePage = () => {
         load();
     }, []);
 
+    /**
+     * Saves the current state of `editForm` to the backend.
+     *
+     * On success:
+     *  - Updates the local `profile` state to reflect the new values.
+     *  - Updates the `localStorage` user object so the Header's display name
+     *    updates immediately without a page reload.
+     *  - Exits edit mode and shows a success message.
+     *
+     * On failure:
+     *  - Shows an error message from the backend.
+     *
+     * @async
+     * @returns {Promise<void>}
+     */
     const handleSave = async () => {
         if (!authUser) return;
         setSaving(true);
@@ -76,6 +138,17 @@ const ProfilePage = () => {
         }
     };
 
+    /**
+     * Submits the password change form to the backend.
+     *
+     * Validates that `pwForm.new` and `pwForm.confirm` match before making
+     * the API call. On success, clears the form, shows a success message,
+     * and auto-hides the form after 3 seconds.
+     *
+     * @async
+     * @param {React.FormEvent} e - The form submission event.
+     * @returns {Promise<void>}
+     */
     const handlePwChange = async (e: React.FormEvent) => {
         e.preventDefault();
         if (pwForm.new !== pwForm.confirm) {
@@ -124,7 +197,7 @@ const ProfilePage = () => {
                 {/* Profile Card */}
                 <div className="lg:col-span-1">
                     <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center shadow-sm sticky top-24">
-                        <div className="w-24 h-24 bg-primary text-white rounded-full mx-auto flex items-center justify-center text-4xl font-bold mb-4 ring-4 ring-slate-50">
+                        <div className="w-28 h-28 bg-gradient-to-br from-primary to-indigo-600 text-white rounded-full mx-auto flex items-center justify-center text-4xl font-bold mb-4 ring-8 ring-indigo-50 shadow-xl shadow-primary/20">
                             {initials}
                         </div>
                         <h2 className="text-xl font-bold text-slate-900">{profile?.name}</h2>
@@ -155,20 +228,20 @@ const ProfilePage = () => {
                 {/* Right Column */}
                 <div className="lg:col-span-2 space-y-6">
                     {/* Stats */}
-                    <div className="grid grid-cols-3 gap-4">
-                        <div className="bg-white p-6 rounded-2xl border border-slate-200 text-center">
-                            <div className="text-3xl font-bold text-slate-900">{stats.total}</div>
-                            <div className="text-xs text-slate-500 mt-1 uppercase tracking-wide font-bold">Total Bookings</div>
+                    <button 
+                        onClick={onViewBookings}
+                        className="w-full bg-gradient-to-br from-indigo-50 to-white p-6 rounded-2xl border border-indigo-100 flex items-center justify-between shadow-sm hover:shadow-md hover:border-indigo-300 transition-all group"
+                    >
+                        <div className="text-left">
+                            <div className="text-[11px] font-bold text-indigo-400 uppercase tracking-widest mb-1 flex items-center gap-2">
+                                Total Bookings <ArrowRight size={12} weight="bold" className="group-hover:translate-x-1 transition-transform" />
+                            </div>
+                            <div className="text-4xl font-black text-indigo-900 group-hover:text-primary transition-colors">{stats.total}</div>
                         </div>
-                        <div className="bg-white p-6 rounded-2xl border border-slate-200 text-center">
-                            <div className="text-3xl font-bold text-primary">{stats.confirmed}</div>
-                            <div className="text-xs text-slate-500 mt-1 uppercase tracking-wide font-bold">Confirmed</div>
+                        <div className="w-14 h-14 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-500 shadow-inner group-hover:scale-110 transition-transform">
+                            <CalendarBlank size={28} weight="duotone" />
                         </div>
-                        <div className="bg-white p-6 rounded-2xl border border-slate-200 text-center">
-                            <div className="text-3xl font-bold text-accent-orange">{stats.pending}</div>
-                            <div className="text-xs text-slate-500 mt-1 uppercase tracking-wide font-bold">Pending</div>
-                        </div>
-                    </div>
+                    </button>
 
                     {/* Edit Profile */}
                     <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">

@@ -39,6 +39,8 @@ const Notification = require('../models/Notification');
 const { authMiddleware, adminOnly } = require('../middleware/auth');
 const { sendBookingEmail } = require('../utils/mail');
 const { notifyAdmins } = require('../utils/notifications');
+const { validate } = require('../middleware/validate');
+const { createBookingSchema, updateBookingStatusSchema } = require('../schemas/booking');
 
 const router = express.Router();
 
@@ -120,6 +122,48 @@ router.get('/', authMiddleware, adminOnly, async (req, res) => {
         res.json(enriched);
     } catch (error) {
         console.error('Error fetching bookings:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+/**
+ * GET /api/bookings/all (PROTECTED)
+ * 
+ * Purpose: Retrieve all bookings for the calendar (across all users)
+ * 
+ * Requirements:
+ *  - Valid JWT token (authMiddleware)
+ * 
+ * Response: Array of all confirmed/pending bookings with enriched user and room data
+ */
+router.get('/all', authMiddleware, async (req, res) => {
+    try {
+        // Fetch all non-cancelled bookings
+        const bookings = await Booking.find({ status: { $ne: 'cancelled' } })
+            .sort({ start_date: -1, start_time: -1 })
+            .lean();
+
+        // Enrich with user and room information
+        const enriched = await Promise.all(bookings.map(async (b) => {
+            const user = await User.findOne({ uid: b.uid }).select('name email').lean();
+            const room = await Room.findOne({ catalog_id: b.catalog_id, room_id: b.room_id })
+                .select('room_name location floor_no')
+                .lean();
+                
+            return {
+                ...b,
+                user_name: user?.name || 'User',
+                email: user?.email || '',
+                room_name: room?.room_name || 'Room',
+                location: room?.location || '',
+                floor_no: room?.floor_no || null
+            };
+        }));
+
+        console.log(`[BOOKING] Found ${enriched.length} total bookings for calendar`);
+        res.json(enriched);
+    } catch (error) {
+        console.error('[BOOKING] Error fetching all bookings:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
@@ -356,19 +400,12 @@ router.get('/availability/:catalog_id/:room_id', async (req, res) => {
  *  - 409: Time slot conflict
  *  - 500: Server error
  */
-router.post('/', authMiddleware, async (req, res) => {
+router.post('/', authMiddleware, validate(createBookingSchema), async (req, res) => {
     const {
         uid, catalog_id, room_id, purpose, attendees,
         start_date, end_date, start_time, end_time, selected_dates,
         per_date_choices
     } = req.body;
-
-    // Validate required fields
-    if (!uid || !catalog_id || !room_id) {
-        return res.status(400).json({ 
-            error: 'Missing required fields (uid, catalog_id, room_id).' 
-        });
-    }
 
     // Verify user is booking for themselves or is admin
     if (req.user.userrole_id !== 'admin' && req.user.uid !== uid) {
@@ -494,12 +531,17 @@ router.post('/', authMiddleware, async (req, res) => {
                     booking_id
                 );
 
-                results.push(booking);
+                results.push({
+                    ...booking.toObject(),
+                    ticket_id
+                });
             }
 
             return res.status(201).json({ 
                 message: 'Granular bookings created.', 
-                bookings: results 
+                bookings: results,
+                booking_id: results.length > 0 ? results[0].booking_id : undefined,
+                ticket_id: results.length > 0 ? results[0].ticket_id : undefined
             });
         }
 
@@ -652,16 +694,9 @@ router.post('/', authMiddleware, async (req, res) => {
  *  - 401/403: Missing token or insufficient permissions
  *  - 500: Server error
  */
-router.put('/:id/status', authMiddleware, adminOnly, async (req, res) => {
+router.put('/:id/status', authMiddleware, adminOnly, validate(updateBookingStatusSchema), async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
-
-    const allowed = ['confirmed', 'rejected', 'cancelled', 'pending'];
-    if (!allowed.includes(status)) {
-        return res.status(400).json({ 
-            error: `Status must be one of: ${allowed.join(', ')}` 
-        });
-    }
 
     try {
         const result = await Booking.findOneAndUpdate(

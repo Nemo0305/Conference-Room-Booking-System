@@ -1,21 +1,70 @@
+/**
+ * @file ResetPasswordPage.tsx
+ * @description Password reset page for the user-facing application.
+ *
+ * This page is the second step of the "Forgot Password" flow. The user arrives
+ * here after receiving an OTP email via `ForgotPasswordPage`. They must enter
+ * their email, the 6-digit OTP code, and a new password to complete the reset.
+ *
+ * Flow:
+ *  1. User enters email, OTP received via email, and new password.
+ *  2. On submit, calls `POST /api/auth/reset-password`.
+ *  3. On success, displays a confirmation message and redirects to login after 3 seconds.
+ *  4. On error, displays the error from the backend.
+ *
+ * @module pages/ResetPasswordPage
+ */
+
 import React, { useState } from 'react';
 import { Buildings, Lock, ArrowLeft, Key, EnvelopeSimple } from '@phosphor-icons/react';
 import { API_URL } from '../lib/api';
 
+/**
+ * Props accepted by the ResetPasswordPage component.
+ */
 interface ResetPasswordPageProps {
+    /**
+     * Optional email to pre-fill the email input field.
+     * Passed from ForgotPasswordPage after the user requests a reset.
+     */
     email?: string;
+    /** Callback invoked when the user clicks "Back". Navigates to ForgotPasswordPage. */
     onBack: () => void;
+    /** Callback invoked after a successful password reset. Navigates to LoginPage. */
     onSuccess: () => void;
 }
 
+/**
+ * ResetPasswordPage — allows a user to reset their password using an OTP.
+ *
+ * @param {ResetPasswordPageProps} props - Component props.
+ * @returns {JSX.Element} The rendered password reset form.
+ */
 const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ email: initialEmail, onBack, onSuccess }) => {
+    /** Pre-filled from the previous step or typed by the user. */
     const [email, setEmail] = useState(initialEmail || '');
+    /** 6-digit OTP received by the user via email. */
     const [otp, setOtp] = useState('');
+    /** The new password the user wants to set. */
     const [password, setPassword] = useState('');
+    /** Confirmation of the new password for typo prevention. */
     const [confirm, setConfirm] = useState('');
+    /** Controls the disabled/loading state of the submit button. */
     const [loading, setLoading] = useState(false);
+    /** Feedback message object to display success or error status to the user. */
     const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
+    /**
+     * Handles the password reset form submission.
+     *
+     * Validates that the two password fields match, then submits the
+     * email, OTP, and new password to the backend. On success, shows
+     * a confirmation message and auto-redirects to the login page.
+     *
+     * @async
+     * @param {React.FormEvent} e - The form submission event.
+     * @returns {Promise<void>}
+     */
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (password !== confirm) {

@@ -11,7 +11,9 @@ import {
     Lock,
     Check,
     X,
-    Eye
+    Eye,
+    ForkKnife,
+    Bed
 } from '@phosphor-icons/react';
 import React, { useState, useEffect, useCallback } from 'react';
 import { fetchRoom, createBooking, fetchRoomAvailability, getCurrentUser, Room, BookedSlot } from '../lib/api';
@@ -47,14 +49,45 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
 
     // Booking form
     const todayStr = new Date().toISOString().slice(0, 10);
-    const [bookDate, setBookDate] = useState(todayStr);
-    const [endDate, setEndDate] = useState(todayStr);
-    const [startSlot, setStartSlot] = useState<number | null>(null);
-    const [endSlot, setEndSlot] = useState<number | null>(null);
+    const [dateMode, setDateMode] = useState<'single' | 'range' | 'custom'>('single');
+    const [rangeStart, setRangeStart] = useState<string>('');
+    const [rangeEnd, setRangeEnd] = useState<string>('');
+    
+    // selectedDates holds the active array regardless of mode
+    const [selectedDates, setSelectedDates] = useState<string[]>([todayStr]);
+    const [activeDate, setActiveDate] = useState<string | null>(todayStr);
+    const [dateSlots, setDateSlots] = useState<Record<string, number[]>>({});
     const [purpose, setPurpose] = useState('');
     const [attendees, setAttendees] = useState<number | string>(1);
     const [submitting, setSubmitting] = useState(false);
     const [bookResult, setBookResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
+    // Helper for range mode
+    const calculateDateRange = (start: string, end: string) => {
+        const dates: string[] = [];
+        // Extract parts to create local date strictly
+        const [sy, sm, sd] = start.split('-').map(Number);
+        const [ey, em, ed] = end.split('-').map(Number);
+        
+        const curr = new Date(sy, sm - 1, sd);
+        const last = new Date(ey, em - 1, ed);
+        
+        while (curr <= last && dates.length < 30) {
+            const y = curr.getFullYear();
+            const m = String(curr.getMonth() + 1).padStart(2, '0');
+            const d = String(curr.getDate()).padStart(2, '0');
+            dates.push(`${y}-${m}-${d}`);
+            curr.setDate(curr.getDate() + 1);
+        }
+        return dates;
+    };
+
+    // Helper for formatting
+    const formatLocalDate = (dateStr: string) => {
+        const [y, m, d] = dateStr.split('-').map(Number);
+        const dateObj = new Date(y, m - 1, d);
+        return dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    };
 
     // Availability
     const [bookedSlots, setBookedSlots] = useState<BookedSlot[]>([]);
@@ -78,10 +111,10 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
 
     // Fetch availability when date or room changes
     const loadAvailability = useCallback(async () => {
-        if (!roomRef || !bookDate) return;
+        if (!roomRef || !activeDate) return;
         setLoadingSlots(true);
         try {
-            const slots = await fetchRoomAvailability(roomRef.catalog_id, roomRef.room_id, bookDate);
+            const slots = await fetchRoomAvailability(roomRef.catalog_id, roomRef.room_id, activeDate);
             setBookedSlots(slots);
         } catch (e) {
             console.error('Failed to load availability:', e);
@@ -89,17 +122,13 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
         } finally {
             setLoadingSlots(false);
         }
-    }, [roomRef?.catalog_id, roomRef?.room_id, bookDate]);
+    }, [roomRef?.catalog_id, roomRef?.room_id, activeDate]);
 
     useEffect(() => {
         loadAvailability();
-        // Reset selection when date changes
-        setStartSlot(null);
-        setEndSlot(null);
         setBookResult(null);
         setViewingBookedSlot(null);
-        if (endDate < bookDate) setEndDate(bookDate);
-    }, [loadAvailability, bookDate]);
+    }, [loadAvailability, activeDate]);
 
     const isSlotInBooking = (slotLabel: string, b: BookedSlot) => {
         if (!b.selected_slots) {
@@ -119,7 +148,7 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
     // Determine slot status
     const getSlotStatus = (slot: typeof ALL_SLOTS[0]): SlotStatus => {
         // Check if past (only for today)
-        const isToday = bookDate === todayStr;
+        const isToday = activeDate === todayStr;
         if (isToday) {
             const now = new Date();
             const currentHour = now.getHours();
@@ -146,58 +175,48 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
     };
 
     const handleSlotClick = (index: number) => {
+        if (!activeDate) return;
         const status = getSlotStatus(ALL_SLOTS[index]);
         if (status !== 'available') return;
 
-        if (startSlot === null || endSlot !== null) {
-            // Start new selection
-            setStartSlot(index);
-            setEndSlot(null);
-        } else {
-            // Set end slot
-            if (index <= startSlot) {
-                // Clicked before start — reset to this
-                setStartSlot(index);
-                setEndSlot(null);
+        setDateSlots(prev => {
+            const currentSlots = prev[activeDate] || [];
+            if (currentSlots.includes(index)) {
+                return { ...prev, [activeDate]: currentSlots.filter(s => s !== index) };
             } else {
-                // Check that all slots in the range are available
-                let allAvailable = true;
-                for (let i = startSlot; i <= index; i++) {
-                    if (getSlotStatus(ALL_SLOTS[i]) !== 'available') {
-                        allAvailable = false;
-                        break;
-                    }
-                }
-                if (allAvailable) {
-                    setEndSlot(index);
-                } else {
-                    // Can't select across booked/past slots — reset
-                    setStartSlot(index);
-                    setEndSlot(null);
-                }
+                return { ...prev, [activeDate]: [...currentSlots, index].sort((a,b)=>a-b) };
             }
-        }
+        });
     };
 
     const isSlotSelected = (index: number): boolean => {
-        if (startSlot === null) return false;
-        const end = endSlot !== null ? endSlot : startSlot;
-        return index >= startSlot && index <= end;
+        if (!activeDate) return false;
+        return (dateSlots[activeDate] || []).includes(index);
     };
 
-    const getSelectedTimeRange = (): { start_time: string; end_time: string } | null => {
-        if (startSlot === null) return null;
-        const end = endSlot !== null ? endSlot : startSlot;
-        return {
-            start_time: ALL_SLOTS[startSlot].start,
-            end_time: ALL_SLOTS[end].end,
-        };
+    const getTotalHours = () => {
+        return Object.values(dateSlots).reduce((total, slots) => total + slots.length, 0);
     };
 
     const submitBookingAction = async (user: any) => {
         if (!room) return;
-        const timeRange = getSelectedTimeRange();
-        if (!timeRange) return;
+        
+        const perDateChoices = selectedDates.map(date => {
+            const slots = dateSlots[date] || [];
+            if (slots.length === 0) return null;
+            const daySlots = slots.map(i => `${ALL_SLOTS[i].start}-${ALL_SLOTS[i].end}`);
+            return { date, slots: daySlots };
+        }).filter(Boolean) as { date: string, slots: string[] }[];
+
+        if (perDateChoices.length !== selectedDates.length) {
+            setBookResult({ ok: false, msg: 'Please select at least one time slot for every selected date.' });
+            return;
+        }
+
+        if (perDateChoices.length === 0) {
+            setBookResult({ ok: false, msg: 'No dates or time slots selected.' });
+            return;
+        }
 
         const attendeeCount = Number(attendees) || 1;
 
@@ -213,25 +232,26 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
                 uid: user.uid,
                 catalog_id: room.catalog_id,
                 room_id: room.room_id,
-                start_date: bookDate,
-                end_date: endDate,
-                start_time: timeRange.start_time,
-                end_time: timeRange.end_time,
                 purpose,
                 attendees: attendeeCount,
+                per_date_choices: perDateChoices
             });
             setBookResult({ ok: true, msg: `Booking created! ID: ${result.booking_id}` });
-            // Refresh availability
+            setDateSlots({});
+            setSelectedDates([todayStr]);
+            setActiveDate(todayStr);
+            setPurpose('');
             loadAvailability();
             setTimeout(() => {
                 onBookingSuccess({
                     booking_id: result.booking_id,
+                    ticket_id: result.ticket_id,
+                    status: 'confirmed',
                     room_name: room.room_name,
                     location: room.location,
-                    date: bookDate,
-                    endDate: endDate,
-                    start_time: timeRange.start_time,
-                    end_time: timeRange.end_time,
+                    date: perDateChoices[0].date,
+                    start_time: perDateChoices[0].slots[0].split('-')[0],
+                    end_time: perDateChoices[0].slots[0].split('-')[1],
                     purpose,
                     attendees: attendeeCount,
                     user_name: user.name,
@@ -278,9 +298,11 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
         'Projector': <ProjectorScreen size={20} />,
         'WiFi': <WifiHigh size={20} />,
         'Audio System': <SpeakerHigh size={20} />,
+        'Fooding': <ForkKnife size={20} />,
+        'Lodging': <Bed size={20} />,
     };
 
-    const timeRange = getSelectedTimeRange();
+    const totalSelectedHoures = getTotalHours();
 
     return (
         <div className="max-w-7xl mx-auto px-6 py-8">
@@ -394,39 +416,205 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
                         )}
 
                         <form onSubmit={handleBook} className="space-y-5">
-                            {/* Date Picker — past dates disabled */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Start Date</label>
-                                    <input
-                                        type="date"
-                                        value={bookDate}
-                                        min={todayStr}
-                                        onChange={e => setBookDate(e.target.value)}
-                                        required
-                                        className="w-full p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary bg-slate-50 font-medium text-sm"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">End Date</label>
-                                    <input
-                                        type="date"
-                                        value={endDate}
-                                        min={bookDate}
-                                        onChange={e => setEndDate(e.target.value)}
-                                        required
-                                        className="w-full p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary bg-slate-50 font-medium text-sm"
-                                    />
-                                </div>
+                            {/* Date Selection Mode Toggle */}
+                            <div className="flex bg-slate-100 p-1 rounded-xl mb-4">
+                                <button 
+                                    type="button" 
+                                    onClick={() => {
+                                        setDateMode('single');
+                                        setSelectedDates([todayStr]);
+                                        setActiveDate(todayStr);
+                                        setDateSlots({});
+                                    }} 
+                                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${dateMode === 'single' ? 'bg-white shadow text-primary' : 'text-slate-500 hover:text-slate-700'}`}
+                                >
+                                    Single Day
+                                </button>
+                                <button 
+                                    type="button" 
+                                    onClick={() => {
+                                        setDateMode('range');
+                                        setRangeStart('');
+                                        setRangeEnd('');
+                                        setSelectedDates([]);
+                                        setActiveDate(null);
+                                        setDateSlots({});
+                                    }} 
+                                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${dateMode === 'range' ? 'bg-white shadow text-primary' : 'text-slate-500 hover:text-slate-700'}`}
+                                >
+                                    Consecutive Days
+                                </button>
+                                <button 
+                                    type="button" 
+                                    onClick={() => {
+                                        setDateMode('custom');
+                                        setSelectedDates([]);
+                                        setActiveDate(null);
+                                        setDateSlots({});
+                                    }} 
+                                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${dateMode === 'custom' ? 'bg-white shadow text-primary' : 'text-slate-500 hover:text-slate-700'}`}
+                                >
+                                    Custom Days
+                                </button>
                             </div>
 
+                            {/* Date Picker Interfaces */}
+                            {dateMode === 'single' && (
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5 font-sans">Reservation Date</label>
+                                    <input
+                                        type="date"
+                                        min={todayStr}
+                                        value={selectedDates[0] || todayStr}
+                                        onChange={e => {
+                                            const val = e.target.value;
+                                            if (val) {
+                                                setSelectedDates([val]);
+                                                setActiveDate(val);
+                                            }
+                                        }}
+                                        className="w-full p-4 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary bg-slate-50 font-medium text-sm transition-all text-slate-500"
+                                    />
+                                </div>
+                            )}
+
+                            {dateMode === 'range' && (
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1.5 font-sans">Start Date</label>
+                                        <input
+                                            type="date"
+                                            min={todayStr}
+                                            value={rangeStart}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                setRangeStart(val);
+                                                
+                                                let endVal = rangeEnd;
+                                                if (!rangeEnd || val > rangeEnd) {
+                                                    setRangeEnd(val);
+                                                    endVal = val;
+                                                }
+                                                
+                                                if (val && endVal) {
+                                                    const dates = calculateDateRange(val, endVal);
+                                                    setSelectedDates(dates);
+                                                    setActiveDate(dates[0] || null);
+                                                }
+                                            }}
+                                            className="w-full p-4 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary bg-slate-50 font-medium text-sm transition-all text-slate-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1.5 font-sans">End Date</label>
+                                        <input
+                                            type="date"
+                                            min={rangeStart || todayStr}
+                                            value={rangeEnd}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                setRangeEnd(val);
+                                                if (rangeStart && val) {
+                                                    const dates = calculateDateRange(rangeStart, val);
+                                                    setSelectedDates(dates);
+                                                    if (activeDate && !dates.includes(activeDate)) setActiveDate(dates[0]);
+                                                    else if (!activeDate) setActiveDate(dates[0]);
+                                                }
+                                            }}
+                                            className="w-full p-4 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary bg-slate-50 font-medium text-sm transition-all text-slate-500"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {dateMode === 'custom' && (
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5 font-sans">Add Dates</label>
+                                    <input
+                                        type="date"
+                                        min={todayStr}
+                                        onChange={e => {
+                                            const val = e.target.value;
+                                            if (val && !selectedDates.includes(val)) {
+                                                setSelectedDates(prev => [...prev, val].sort());
+                                                setActiveDate(val);
+                                            }
+                                        }}
+                                        className="w-full p-4 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary bg-slate-50 font-medium text-sm transition-all text-slate-500"
+                                    />
+                                </div>
+                            )}
+
+                            {/* Selected Dates Display (Only in Range or Custom mode) */}
+                            {(dateMode === 'custom' || dateMode === 'range') && selectedDates.length > 0 && (
+                                <div className="mt-2">
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Selected Dates ({selectedDates.length})</label>
+                                    <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                                        {selectedDates.map(date => (
+                                            <div
+                                                key={date}
+                                                onClick={() => setActiveDate(date)}
+                                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-all border
+                                                    ${activeDate === date
+                                                        ? 'bg-primary text-white border-primary shadow-md'
+                                                        : 'bg-primary-light/50 text-primary-dark border-primary-light hover:bg-primary-light/80'}`}
+                                            >
+                                                {formatLocalDate(date)}
+                                                {dateMode === 'custom' && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            const newDates = selectedDates.filter(d => d !== date);
+                                                            setSelectedDates(newDates);
+                                                            if (activeDate === date) {
+                                                                setActiveDate(newDates.length > 0 ? newDates[0] : null);
+                                                            }
+                                                            setDateSlots(prev => {
+                                                                const newSlots = { ...prev };
+                                                                delete newSlots[date];
+                                                                return newSlots;
+                                                            });
+                                                        }}
+                                                        className={`ml-1 hover:text-red-500 ${activeDate === date ? 'text-white/70' : ''}`}
+                                                    >
+                                                        <X size={12} weight="bold" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Time Slot Grid */}
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-                                    Select Time Slots
-                                </label>
-                                <p className="text-xs text-slate-400 mb-3">
-                                    Click a start slot, then click an end slot to define your range
+                            <div className={!activeDate ? 'opacity-50 pointer-events-none' : ''}>
+                                <div className="flex justify-between items-center mb-1.5">
+                                    <label className="block text-sm font-semibold text-slate-700">
+                                        Select Time Slots {activeDate && <span className="text-primary font-black ml-1">for {formatLocalDate(activeDate)}</span>}
+                                    </label>
+                                    {selectedDates.length > 1 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                if (!activeDate) return;
+                                                const currentSlots = dateSlots[activeDate] || [];
+                                                setDateSlots(prev => {
+                                                    const nextSlots = { ...prev };
+                                                    selectedDates.forEach(d => {
+                                                        nextSlots[d] = [...currentSlots];
+                                                    });
+                                                    return nextSlots;
+                                                });
+                                            }}
+                                            className="text-[10px] font-bold text-primary hover:underline bg-primary/10 px-2 py-1 rounded transition-colors"
+                                        >
+                                            Apply to all dates
+                                        </button>
+                                    )}
+                                </div>
+                                <p className="text-[10px] text-slate-400 mb-3 uppercase tracking-wider">
+                                    {activeDate ? 'Click time slots to select or deselect them' : 'Select a date above to define slots'}
                                 </p>
 
                                 {loadingSlots ? (
@@ -440,8 +628,6 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
                                         {ALL_SLOTS.map((slot, index) => {
                                             const status = getSlotStatus(slot);
                                             const selected = isSlotSelected(index);
-                                            const isStart = index === startSlot;
-                                            const isEnd = index === (endSlot ?? startSlot);
 
                                             let classes = 'relative flex items-center gap-2 px-3 py-3 rounded-xl text-xs font-bold transition-all border-2 ';
 
@@ -480,12 +666,6 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
                                                         {status === 'available' && !selected && <Clock size={14} />}
                                                         {selected && <Check size={14} weight="bold" />}
                                                         {status !== 'booked' && <span>{slot.label}</span>}
-                                                        {isStart && selected && (
-                                                            <span className="absolute -top-1.5 -right-1.5 bg-primary text-white text-[8px] font-black px-1.5 py-0.5 rounded-full shadow">START</span>
-                                                        )}
-                                                        {isEnd && endSlot !== null && selected && (
-                                                            <span className="absolute -bottom-1.5 -right-1.5 bg-primary text-white text-[8px] font-black px-1.5 py-0.5 rounded-full shadow">END</span>
-                                                        )}
                                                     </button>
 
                                                     {/* Booked slot details popup */}
@@ -537,18 +717,14 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
                             </div>
 
                             {/* Selected range summary */}
-                            {timeRange && (
+                            {totalSelectedHoures > 0 && (
                                 <div className="bg-primary/5 border border-primary/20 p-4 rounded-xl">
                                     <p className="text-xs font-bold text-primary uppercase tracking-wide mb-1">Reservation Summary</p>
-                                    <p className="text-lg font-black text-slate-900">
-                                        {timeRange.start_time.slice(0, 5)} – {timeRange.end_time.slice(0, 5)}
+                                    <p className="text-xl font-black text-slate-900">
+                                        {selectedDates.length} date(s)
                                     </p>
                                     <p className="text-xs text-slate-500 mt-1">
-                                        {((endSlot ?? startSlot!) - startSlot! + 1)} hour(s) daily
-                                        {bookDate === endDate
-                                            ? ` on ${new Date(bookDate + 'T00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
-                                            : ` from ${new Date(bookDate + 'T00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} to ${new Date(endDate + 'T00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
-                                        }
+                                        {totalSelectedHoures} total hour(s) selected
                                     </p>
                                 </div>
                             )}
@@ -579,10 +755,10 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
                             </div>
                             <button
                                 type="submit"
-                                disabled={submitting || !timeRange || (room && Number(attendees) > room.capacity)}
+                                disabled={submitting || totalSelectedHoures === 0 || (room && Number(attendees) > room.capacity) || selectedDates.length === 0}
                                 className="w-full py-4 bg-secondary hover:bg-secondary-dark text-white text-lg font-bold rounded-xl shadow-lg shadow-blue-200 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
                             >
-                                {submitting ? 'Booking...' : (room && Number(attendees) > room.capacity) ? 'Capacity Exceeded' : !timeRange ? 'Select a time slot' : 'Book This Space'}
+                                {submitting ? 'Booking...' : (room && Number(attendees) > room.capacity) ? 'Capacity Exceeded' : totalSelectedHoures === 0 ? 'Select a time slot' : 'Book This Space'}
                             </button>
                         </form>
 

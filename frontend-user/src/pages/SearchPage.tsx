@@ -1,8 +1,37 @@
+/**
+ * @file SearchPage.tsx
+ * @description Room search and booking page for the user-facing application.
+ *
+ * This is the primary reservation page. It is structured in three stages:
+ *
+ * Stage 1 — Office Selection:
+ *   Displays all unique office/location cards fetched from the backend.
+ *   Users click an office card to drill down into the specific rooms there.
+ *
+ * Stage 2 — Room Type Selection:
+ *   Displays all rooms within the selected office. Users can also apply
+ *   filter criteria (type, location, amenities, capacity) and search by
+ *   keyword to narrow down results.
+ *
+ * Stage 3 — Booking Form:
+ *   When a specific room is selected, the main view shows its details
+ *   (image, amenities, layout) alongside a sticky booking form. The form
+ *   allows the user to choose a date range and time slots, with real-time
+ *   availability overlaid to prevent double-bookings.
+ *
+ * Key Dependencies:
+ *  - `fetchRooms`: Loads all rooms from `GET /api/rooms`.
+ *  - `fetchRoomAvailability`: Loads booked slots from `GET /api/bookings/availability`.
+ *  - `createBooking`: Submits a booking to `POST /api/bookings`.
+ *  - `getCurrentUser`: Reads the authenticated user from localStorage.
+ *
+ * @module pages/SearchPage
+ */
+
 import {
     Funnel,
     MagnifyingGlass,
     Users,
-    Star,
     CaretDown
 } from '@phosphor-icons/react';
 import React, { useState, useEffect } from 'react';
@@ -11,6 +40,10 @@ import { getDirectImageUrl } from '../lib/imageUtils';
 import { BookingResult } from '../App';
 
 
+/**
+ * Represents a normalized room object used within the Search page's UI.
+ * Maps raw API fields into a more UI-friendly shape.
+ */
 export interface SearchRoom {
     id: string; // room_id
     catalog_id: string; // catalog_id from DB
@@ -18,14 +51,20 @@ export interface SearchRoom {
     location: string;
     description: string;
     capacity: number;
-    rating: number;
-    reviews: number;
     image: string;
     tags: string[];
     utilization: number;
     amenities: string[];
     type: string;
 }
+
+/**
+ * Generates all bookable 1-hour time slots within the working day (9 AM to 6 PM).
+ * The resulting array is used to render the slot grid in the booking form.
+ *
+ * @constant {Array<{start: string, end: string, label: string, startH: number}>} ALL_SLOTS
+ * @example ALL_SLOTS[0] // { start: '09:00:00', end: '10:00:00', label: '09:00 – 10:00', startH: 9 }
+ */
 
 // Generate all 1-hour slots for the day (9 AM – 6 PM)
 const ALL_SLOTS = Array.from({ length: 9 }, (_, i) => {
@@ -39,37 +78,61 @@ const ALL_SLOTS = Array.from({ length: 9 }, (_, i) => {
     };
 });
 
+/**
+ * Props accepted by the SearchPage component.
+ */
 interface SearchPageProps {
+    /** Optional callback: navigates to the detailed room view when a room card is clicked. */
     onViewRoom?: (catalog_id: string, room_id: string) => void;
+    /** Callback invoked after a successful booking, navigating to the ticket page. */
     onBookingSuccess?: (booking: BookingResult) => void;
 }
 
+/**
+ * Internal shape used to represent a unique office/building location derived
+ * from the list of rooms.
+ */
 interface Office {
     name: string;
     location: string;
     image: string;
 }
 
+/**
+ * SearchPage — the main room discovery and booking page.
+ *
+ * Handles three UI stages: office list → room type list → booking form.
+ * Fetches room data on mount and availability data when a room/date is selected.
+ *
+ * @param {SearchPageProps} props - Component props.
+ * @returns {JSX.Element} The rendered search and booking page.
+ */
 const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBookingSuccess }) => {
     const [selectedRoomType, setSelectedRoomType] = useState<SearchRoom | null>(null);
     const [rooms, setRooms] = useState<SearchRoom[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Booking form state
+    // ─── Booking Form State ───────────────────────────────────────────────
+    /** Today's date string (YYYY-MM-DD) used as the minimum allowed booking date. */
     const todayStr = new Date().toISOString().slice(0, 10);
     const [bookDate, setBookDate] = useState(todayStr);
-    const [endDate, setEndDate] = useState(todayStr);
+    /** Index of the first selected time slot in the ALL_SLOTS array. */
     const [startSlot, setStartSlot] = useState<number | null>(null);
+    /** Index of the last selected time slot (for range selection). */
     const [endSlot, setEndSlot] = useState<number | null>(null);
     const [bookPurpose, setBookPurpose] = useState('');
     const [bookAttendees, setBookAttendees] = useState<number | string>(1);
+    /** True while the booking form submission is in-flight. */
     const [bookingSubmitting, setBookingSubmitting] = useState(false);
+    /** Stores the result of the last booking attempt (OK or error message). */
     const [bookingResult, setBookingResult] = useState<{ ok: boolean; msg: string } | null>(null);
+    /** Booked slots returned by the availability API for conflict detection. */
     const [bookedSlots, setBookedSlots] = useState<BookedSlot[]>([]);
+    /** True while availability is being loaded from the API. */
     const [loadingSlots, setLoadingSlots] = useState(false);
 
-    // Filter & search state
+    // ─── Filter & Search State ────────────────────────────────────────────
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedRoomTypes, setSelectedRoomTypes] = useState<string[]>([]);
     const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
@@ -96,7 +159,17 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
         loadAvailability();
     }, [selectedRoomType, bookDate]);
 
-    // Slot helpers
+    /**
+     * Determines the display status of a given time slot.
+     *
+     * A slot can be one of three states:
+     *  - 'past':      The slot has already passed (only applies when viewing today).
+     *  - 'booked':    The slot overlaps with an existing confirmed booking.
+     *  - 'available': The slot is free and can be selected.
+     *
+     * @param {typeof ALL_SLOTS[0]} slot - A time slot object from the ALL_SLOTS array.
+     * @returns {'past' | 'booked' | 'available'} The derived status of the slot.
+     */
     const getSlotStatus = (slot: typeof ALL_SLOTS[0]) => {
         // 1. Check if past (for today)
         const now = new Date();
@@ -114,6 +187,13 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
         return 'available';
     };
 
+    /**
+     * Checks whether a given slot index falls within the user's current selection range.
+     * The range is defined from `startSlot` to `endSlot` (inclusive, order-independent).
+     *
+     * @param {number} index - The index of the slot in the ALL_SLOTS array.
+     * @returns {boolean} True if the slot is within the selected range.
+     */
     const isSlotSelected = (index: number) => {
         if (startSlot === null) return false;
         if (endSlot === null) return index === startSlot;
@@ -122,6 +202,17 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
         return index >= min && index <= max;
     };
 
+    /**
+     * Handles a click on a time slot button.
+     *
+     * Selection logic (two-click range model):
+     *  - First click (or re-click when a range is set): Sets `startSlot`, clears `endSlot`.
+     *  - Second click: Sets `endSlot` to complete the range.
+     *  - If any slot in the proposed range is already booked, the range is rejected
+     *    and only the newly clicked slot becomes the new `startSlot`.
+     *
+     * @param {number} index - The index of the clicked slot in the ALL_SLOTS array.
+     */
     const handleSlotClick = (index: number) => {
         if (startSlot === null || (startSlot !== null && endSlot !== null)) {
             setStartSlot(index);
@@ -153,8 +244,6 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
                     location: r.location,
                     description: `Located on Floor ${r.floor_no}, Room ${r.room_number}. ${r.availability || 'Available for booking.'}`,
                     capacity: r.capacity,
-                    rating: 4.5 + (Math.random() * 0.5), // Randomized for UI
-                    reviews: Math.floor(Math.random() * 100) + 10,
                     image: getDirectImageUrl(r.image_url) || `https://picsum.photos/seed/${r.room_id}/500/300`,
                     tags: [r.status || 'Available'],
                     utilization: Math.floor(Math.random() * 100),
@@ -175,11 +264,18 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
     const filters = {
         roomType: ['Conference Room', 'Meeting Room', 'Training Room', 'Auditorium'],
         location: ['Downtown Office', 'Tech Park Campus', 'Business District'],
-        amenities: ['Video Conferencing', 'Whiteboard', 'Projector', 'WiFi', 'Audio System'],
+        amenities: ['Video Conferencing', 'Whiteboard', 'Projector', 'WiFi', 'Audio System', 'Fooding', 'Lodging'],
         capacity: ['2-6 People', '6-12 People', '12-20 People', '20+ People'],
     };
 
 
+    /**
+     * Maps the raw capacity number of a room to one of the predefined
+     * capacity range filter strings. Used to match the UI filter options.
+     *
+     * @param {number} people - The maximum occupancy of the room.
+     * @returns {'2-6 People' | '6-12 People' | '12-20 People' | '20+ People'}
+     */
     const getCapacityRange = (people: number): string => {
         if (people <= 6) return '2-6 People';
         if (people <= 12) return '6-12 People';
@@ -187,6 +283,13 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
         return '20+ People';
     };
 
+    /**
+     * Applies all active filter criteria (`selectedRoomTypes`, `selectedLocations`,
+     * `selectedAmenities`, `selectedCapacity`, and `searchQuery`) to the full
+     * rooms list and updates `filteredRooms` with the results.
+     *
+     * Called when the user clicks the "Apply Filters" button.
+     */
     const applyFilters = () => {
         let results = rooms;
 
@@ -346,10 +449,6 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
                                         <Users size={16} className="text-primary" />
                                         <span>{room.capacity} people</span>
                                     </div>
-                                    <div className="flex items-center gap-1 text-amber-500 font-bold">
-                                        <Star size={14} weight="fill" />
-                                        <span>{room.rating}</span>
-                                    </div>
                                 </div>
                                 <button
                                     onClick={() => {
@@ -403,10 +502,6 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
                                     <div className="p-4 bg-slate-50 rounded-lg">
                                         <p className="text-slate-500 text-sm">Capacity</p>
                                         <p className="text-2xl font-bold text-primary">{selectedRoomType.capacity}</p>
-                                    </div>
-                                    <div className="p-4 bg-slate-50 rounded-lg">
-                                        <p className="text-slate-500 text-sm">Rating</p>
-                                        <p className="text-2xl font-bold text-amber-500">{selectedRoomType.rating}</p>
                                     </div>
                                     <div className="p-4 bg-slate-50 rounded-lg invisible h-0">
                                         <p className="text-slate-500 text-sm">Cost</p>
@@ -498,14 +593,14 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
                                         catalog_id: selectedRoomType.catalog_id,
                                         room_id: selectedRoomType.id,
                                         start_date: bookDate,
-                                        end_date: endDate,
+                                        end_date: bookDate,
                                         start_time: sStr,
                                         end_time: eStr,
                                         purpose: bookPurpose,
                                         attendees: attendeeCount,
                                     });
                                     setBookingResult({ ok: true, msg: `✅ Booking confirmed! ID: ${result.booking_id}` });
-                                    setBookDate(todayStr); setEndDate(todayStr); setStartSlot(null); setEndSlot(null); setBookPurpose(''); setBookAttendees(1);
+                                    setBookDate(todayStr); setStartSlot(null); setEndSlot(null); setBookPurpose(''); setBookAttendees(1);
                                     // Navigate to ticket view after a short delay
                                     if (onBookingSuccess && selectedRoomType) {
                                         setTimeout(() => {
@@ -526,33 +621,17 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
                                     setBookingSubmitting(false);
                                 }
                             }}>
-                                {/* Date Range Picker */}
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Start Date</label>
-                                        <input
-                                            type="date"
-                                            value={bookDate}
-                                            min={todayStr}
-                                            onChange={e => {
-                                                setBookDate(e.target.value);
-                                                if (new Date(endDate) < new Date(e.target.value)) setEndDate(e.target.value);
-                                            }}
-                                            required
-                                            className="w-full p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary bg-slate-50 font-medium text-sm"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">End Date</label>
-                                        <input
-                                            type="date"
-                                            value={endDate}
-                                            min={bookDate}
-                                            onChange={e => setEndDate(e.target.value)}
-                                            required
-                                            className="w-full p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary bg-slate-50 font-medium text-sm"
-                                        />
-                                    </div>
+                                {/* Date Selection */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Reservation Date</label>
+                                    <input
+                                        type="date"
+                                        value={bookDate}
+                                        min={todayStr}
+                                        onChange={e => setBookDate(e.target.value)}
+                                        required
+                                        className="w-full p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary bg-slate-50 font-medium text-sm"
+                                    />
                                 </div>
 
                                 {/* Time Slot Grid */}

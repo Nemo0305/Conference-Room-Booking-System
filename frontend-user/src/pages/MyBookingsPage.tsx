@@ -190,14 +190,13 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ onBrowse, onViewTicket 
     const TabButton = ({ id, label, count }: { id: typeof activeTab; label: string; count: number }) => (
         <button
             onClick={() => { setActiveTab(id); setSelectedDateFilter(null); }}
-            className={`flex-1 py-4 text-sm font-bold border-b-2 transition-all flex items-center justify-center gap-2 relative
-                ${activeTab === id ? 'border-primary text-primary bg-primary/5' : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
+            className={`flex-1 py-3 px-6 rounded-full text-sm font-bold transition-all flex items-center justify-center gap-2
+                ${activeTab === id ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
         >
             {label}
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${activeTab === id ? 'bg-primary text-white' : 'bg-slate-100 text-slate-500'}`}>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full shadow-inner ${activeTab === id ? 'bg-black/20 text-white' : 'bg-white text-slate-500'}`}>
                 {count}
             </span>
-            {activeTab === id && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-48 h-0.5 bg-primary rounded-full" />}
         </button>
     );
 
@@ -265,7 +264,7 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ onBrowse, onViewTicket 
             <div className="flex flex-col lg:grid lg:grid-cols-12 gap-12">
                 {/* Right Column: Bookings List */}
                 <div className="lg:col-span-7 flex flex-col min-h-[800px]">
-                    <div className="bg-white rounded-[2.5rem] border border-slate-200 p-2 shadow-sm mb-8 flex divide-x divide-slate-100">
+                    <div className="bg-white rounded-full border border-slate-200 p-2 shadow-sm mb-8 flex gap-2 w-full lg:max-w-2xl">
                         <TabButton id="upcoming" label="Upcoming" count={stats.upcoming} />
                         <TabButton id="past" label="Past" count={stats.past} />
                         <TabButton id="cancelled" label="Cancelled" count={stats.cancelled} />
@@ -292,62 +291,80 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ onBrowse, onViewTicket 
                                 )}
                             </div>
                         ) : (
-                            filteredBookings.map(booking => (
-                                <div
-                                    key={booking.booking_id}
-                                    className="group bg-white border border-slate-100 rounded-[2.5rem] p-8 hover:border-primary/20 hover:shadow-2xl hover:shadow-primary/5 transition-all duration-500 relative"
-                                >
-                                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                            filteredBookings.map(booking => {
+                                const isPending = booking.status === 'pending';
+                                const isConfirmed = booking.status === 'confirmed';
+
+                                let cardClasses = "group border rounded-[2.5rem] p-8 transition-all duration-500 relative hover:-translate-y-1 overflow-hidden ";
+                                if (isConfirmed) cardClasses += "bg-white border-emerald-100 hover:border-emerald-200 shadow-xl shadow-emerald-900/5";
+                                else if (isPending) cardClasses += "bg-gradient-to-br from-slate-900 to-slate-800 border-slate-800 text-white shadow-xl shadow-slate-900/40";
+                                else cardClasses += "bg-white border-rose-100 hover:border-rose-200 shadow-xl shadow-rose-900/5";
+
+                                const statBoxClasses = isPending ? "bg-slate-800 border-slate-700" : (isConfirmed ? "bg-emerald-50 border-emerald-100/50" : "bg-rose-50 border-rose-100/50");
+                                const statValueClasses = isPending ? "text-white" : (isConfirmed ? "text-emerald-950" : "text-rose-950");
+                                const titleClasses = isPending ? "text-white" : "text-slate-900";
+
+                                return (
+                                    <div
+                                        key={booking.booking_id}
+                                        className={cardClasses}
+                                    >
+                                    {/* Background Watermark Icon */}
+                                    <div className={`absolute -right-4 -bottom-4 opacity-[0.03] transform  transition-transform duration-700 pointer-events-none ${isPending ? 'text-white' : 'text-slate-900'} group-hover:scale-110 group-hover:-rotate-12`}>
+                                        {isConfirmed ? <Calendar size={200} weight="fill" /> : <VideoCamera size={200} weight="fill" />}
+                                    </div>
+
+                                    <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                                         <div className="flex items-center gap-5">
-                                            <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all duration-500">
+                                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500 ${isPending ? 'bg-slate-800 text-primary group-hover:bg-primary group-hover:text-white' : 'bg-slate-50 text-primary group-hover:bg-primary group-hover:text-white'}`}>
                                                 <VideoCamera size={28} weight="bold" />
                                             </div>
                                             <div>
-                                                <h3 className="text-2xl font-black text-slate-900 leading-tight tracking-tight">
+                                                <h3 className={`text-2xl font-black leading-tight tracking-tight ${titleClasses}`}>
                                                     {booking.room_name || `Room ${booking.room_id}`}
                                                 </h3>
-                                                <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest mt-1">
+                                                <p className={`${isPending ? 'text-slate-500' : 'text-slate-400'} font-bold uppercase text-[10px] tracking-widest mt-1`}>
                                                     Reserved for {booking.user_name || 'Individual'}
                                                 </p>
                                             </div>
                                         </div>
-                                        <span className={`px-5 py-2 text-[10px] font-black rounded-full uppercase tracking-widest transition-all ${statusColors[booking.status] || 'bg-slate-100 text-slate-600'}`}>
+                                        <span className={`px-5 py-2 text-[10px] font-black rounded-full uppercase tracking-widest transition-all ${statusColors[booking.status] || 'bg-slate-100 text-slate-600'} shadow-sm`}>
                                             {booking.status === 'confirmed' ? '✓ ' : booking.status === 'pending' ? '⏳ ' : ''}
                                             {booking.status}
                                         </span>
                                     </div>
 
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                                        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100/50">
+                                    <div className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                                        <div className={`${statBoxClasses} rounded-2xl p-4 border transition-colors`}>
                                             <label className="block text-slate-400 text-[9px] uppercase font-black tracking-widest mb-1.5">Reference</label>
-                                            <span className="font-black text-slate-800 font-mono text-sm">#{booking.booking_id.split('-')[1] || booking.booking_id.slice(-6)}</span>
+                                            <span className={`font-black font-mono text-sm ${statValueClasses}`}>#{booking.booking_id.split('-')[1] || booking.booking_id.slice(-6)}</span>
                                         </div>
-                                        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100/50">
+                                        <div className={`${statBoxClasses} rounded-2xl p-4 border transition-colors`}>
                                             <label className="block text-slate-400 text-[9px] uppercase font-black tracking-widest mb-1.5">Schedule</label>
-                                            <span className="font-black text-slate-800 text-sm italic">
+                                            <span className={`font-black text-sm italic ${statValueClasses}`}>
                                                 {parseLocalDate(booking.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                                             </span>
                                         </div>
-                                        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100/50">
+                                        <div className={`${statBoxClasses} rounded-2xl p-4 border transition-colors`}>
                                             <label className="block text-slate-400 text-[9px] uppercase font-black tracking-widest mb-1.5">Time Interval</label>
-                                            <span className="font-black text-slate-800 text-sm">
+                                            <span className={`font-black text-sm ${statValueClasses}`}>
                                                 {booking.start_time?.slice(0, 5)}–{booking.end_time?.slice(0, 5)}
                                             </span>
                                         </div>
-                                        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100/50">
+                                        <div className={`${statBoxClasses} rounded-2xl p-4 border transition-colors`}>
                                             <label className="block text-slate-400 text-[9px] uppercase font-black tracking-widest mb-1.5">Location</label>
                                             <div className="flex items-center gap-1">
                                                 <MapPin size={12} className="text-primary" weight="bold" />
-                                                <span className="font-black text-slate-800 text-sm truncate">{booking.location || 'HQ'}</span>
+                                                <span className={`font-black text-sm truncate ${statValueClasses}`}>{booking.location || 'HQ'}</span>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div className="flex flex-col md:flex-row items-center gap-4">
+                                    <div className="relative z-10 flex flex-col md:flex-row items-center gap-4">
                                         {booking.status === 'confirmed' && (
                                             <button
                                                 onClick={() => onViewTicket && onViewTicket(booking)}
-                                                className="w-full md:flex-1 bg-slate-900 hover:bg-black text-white py-5 rounded-[1.25rem] text-xs font-black uppercase tracking-widest transition-all active:scale-[0.98] shadow-2xl shadow-slate-900/20 flex items-center justify-center gap-2"
+                                                className="w-full md:flex-1 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white py-5 rounded-[1.25rem] text-xs font-black uppercase tracking-widest transition-all active:scale-[0.98] shadow-xl shadow-emerald-900/20 hover:shadow-emerald-900/40 flex items-center justify-center gap-2"
                                             >
                                                 <Check size={18} weight="bold" />
                                                 Access Ticket
@@ -357,7 +374,8 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ onBrowse, onViewTicket 
                                             <button
                                                 onClick={() => openCancelModal(booking)}
                                                 disabled={cancellingId === booking.booking_id}
-                                                className="w-full md:w-auto px-8 bg-slate-50 hover:bg-rose-50 hover:text-rose-500 py-5 rounded-[1.25rem] text-xs font-black uppercase tracking-widest transition-all disabled:opacity-50 text-slate-400 border border-transparent hover:border-rose-100"
+                                                className={`w-full md:w-auto px-8 py-5 rounded-[1.25rem] text-xs font-black uppercase tracking-widest transition-all disabled:opacity-50 border border-transparent 
+                                                    ${isPending ? 'bg-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white' : 'bg-rose-50 text-rose-500 hover:bg-rose-100 hover:border-rose-200 shadow-sm shadow-rose-900/5'}`}
                                             >
                                                 {cancellingId === booking.booking_id ? 'Wait...' : 'Cancel'}
                                             </button>
@@ -372,13 +390,13 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ onBrowse, onViewTicket 
 
                                     {/* Granular Segments Display */}
                                     {(booking.selected_dates || booking.selected_slots) && booking.status !== 'cancelled' && (
-                                        <div className="mt-8 pt-8 border-t border-slate-50 space-y-4">
+                                        <div className={`mt-8 pt-8 border-t ${isPending ? 'border-slate-800' : 'border-slate-50'} space-y-4`}>
                                             {booking.selected_dates && booking.selected_dates.split(',').length > 1 && (
                                                 <div>
-                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Reserved Dates</label>
+                                                    <label className={`text-[10px] font-black uppercase tracking-widest mb-2 block ${isPending ? 'text-slate-500' : 'text-slate-400'}`}>Reserved Dates</label>
                                                     <div className="flex flex-wrap gap-2">
                                                         {booking.selected_dates.split(',').sort().map(d => (
-                                                            <span key={d} className="px-3 py-1 bg-slate-50 text-slate-600 rounded-lg text-xs font-bold border border-slate-100">
+                                                            <span key={d} className={`px-3 py-1 rounded-lg text-xs font-bold border ${isPending ? 'bg-slate-800 text-slate-300 border-slate-700' : 'bg-slate-50 text-slate-600 border-slate-100'}`}>
                                                                 {new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                                                             </span>
                                                         ))}
@@ -387,10 +405,10 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ onBrowse, onViewTicket 
                                             )}
                                             {booking.selected_slots && (
                                                 <div>
-                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Daily Time Blocks</label>
+                                                    <label className={`text-[10px] font-black uppercase tracking-widest mb-2 block ${isPending ? 'text-slate-500' : 'text-slate-400'}`}>Daily Time Blocks</label>
                                                     <div className="flex flex-wrap gap-2">
                                                         {booking.selected_slots.split(',').sort().map(s => (
-                                                            <span key={s} className="px-3 py-1 bg-primary/5 text-primary rounded-lg text-xs font-bold border border-primary/10 flex items-center gap-1">
+                                                            <span key={s} className={`px-3 py-1 rounded-lg text-xs font-bold border flex items-center gap-1 ${isPending ? 'bg-primary/10 text-primary border-primary/20' : 'bg-primary/5 text-primary border-primary/10'}`}>
                                                                 <Clock size={12} weight="bold" />
                                                                 {s.split('-')[0].slice(0, 5)} - {s.split('-')[1].slice(0, 5)}
                                                             </span>
@@ -401,15 +419,16 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ onBrowse, onViewTicket 
                                         </div>
                                     )}
                                 </div>
-                            ))
-                        )}
-                    </div>
+                            );
+                        })
+                    )}
                 </div>
-                {/* Left Column: Personal Calendar & Stats */}
-                <div className="lg:col-span-5 space-y-8">
+            </div>
+            {/* Left Column: Personal Calendar & Stats */}
+            <div className="lg:col-span-5 space-y-8">
                     {/* Quick Stats Grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div className="bg-slate-900 rounded-[2.5rem] p-6 text-white relative overflow-hidden group hover:scale-[1.02] transition-transform">
+                        <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[2.5rem] p-6 text-white relative overflow-hidden group hover:scale-[1.02] transition-transform shadow-xl shadow-slate-900/20">
                             <div className="relative z-10 flex flex-col h-full justify-between">
                                 <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Upcoming Booking</p>
                                 <h4 className="text-3xl font-black">{stats.upcoming}</h4>
@@ -418,16 +437,16 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ onBrowse, onViewTicket 
                                 <Calendar size={80} weight="fill" />
                             </div>
                         </div>
-                        <div className="bg-primary rounded-[2.5rem] p-6 text-white relative overflow-hidden group hover:scale-[1.02] transition-transform">
+                        <div className="bg-gradient-to-br from-primary to-primary-dark rounded-[2.5rem] p-6 text-white relative overflow-hidden group hover:scale-[1.02] transition-transform shadow-xl shadow-primary/20">
                             <div className="relative z-10 flex flex-col h-full justify-between">
-                                <p className="text-white/60 text-[10px] font-black uppercase tracking-widest mb-1">Total Bookings</p>
+                                <p className="text-white/80 text-[10px] font-black uppercase tracking-widest mb-1">Total Bookings</p>
                                 <h4 className="text-3xl font-black">{bookings.length}</h4>
                             </div>
                             <div className="absolute -bottom-4 -right-4 text-white/10 transform group-hover:rotate-12 transition-transform">
                                 <VideoCamera size={80} weight="fill" />
                             </div>
                         </div>
-                        <div className="bg-rose-500 rounded-[2.5rem] p-6 text-white relative overflow-hidden group hover:scale-[1.02] transition-transform">
+                        <div className="bg-gradient-to-br from-rose-500 to-red-600 rounded-[2.5rem] p-6 text-white relative overflow-hidden group hover:scale-[1.02] transition-transform shadow-xl shadow-rose-500/20">
                             <div className="relative z-10 flex flex-col h-full justify-between">
                                 <p className="text-rose-200 text-[10px] font-black uppercase tracking-widest mb-1">Cancelled Booking</p>
                                 <h4 className="text-3xl font-black">{stats.cancelled}</h4>
@@ -478,6 +497,19 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ onBrowse, onViewTicket 
                                 const isSelected = selectedDateFilter === dateStr;
                                 const isPast = isPastDate(dateStr);
 
+                                let dateColorClass = 'hover:bg-slate-50 cursor-default text-slate-400';
+                                if (isPast) {
+                                    dateColorClass = 'bg-slate-100/50 text-slate-400 opacity-60 cursor-not-allowed';
+                                } else if (dateBookings.length > 0) {
+                                    if (hasConfirmed) {
+                                        dateColorClass = 'bg-emerald-500 shadow-xl shadow-emerald-500/40 cursor-pointer active:scale-90 text-white hover:bg-emerald-600';
+                                    } else if (!hasConfirmed && hasCancelled) {
+                                        dateColorClass = 'bg-rose-500 shadow-xl shadow-rose-500/40 cursor-pointer active:scale-90 text-white hover:bg-rose-600';
+                                    } else {
+                                        dateColorClass = 'bg-slate-900 shadow-xl shadow-slate-900/40 cursor-pointer active:scale-90 text-white hover:bg-black';
+                                    }
+                                }
+
                                 return (
                                     <button
                                         key={day}
@@ -486,17 +518,12 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ onBrowse, onViewTicket 
                                             if (dateBookings.length > 0) setShowDatePopup(dateStr);
                                         }}
                                         disabled={isPast}
-                                        className={`aspect-square relative flex flex-col items-center justify-center rounded-2xl transition-all 
-                                            ${isPast ? 'bg-slate-100/50 text-slate-400 opacity-60 cursor-not-allowed' :
-                                                dateBookings.length > 0 ? 'bg-slate-900 shadow-xl shadow-slate-300 cursor-pointer active:scale-90 text-white' : 'hover:bg-slate-50 cursor-default text-slate-300'}
+                                        className={`aspect-square relative flex flex-col items-center justify-center rounded-2xl transition-all font-black text-sm lg:text-base 
+                                            ${dateColorClass}
                                             ${isSelected && !isPast ? 'ring-[3px] ring-primary ring-offset-2' : ''}
                                         `}
                                     >
-                                        <span className="text-base font-black">{day}</span>
-                                        <div className="flex gap-1 mt-1">
-                                            {hasConfirmed && <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" />}
-                                            {hasCancelled && <div className="w-1.5 h-1.5 rounded-full bg-rose-400 shadow-sm shadow-rose-400/50" />}
-                                        </div>
+                                        {day}
                                     </button>
                                 );
                             })}
@@ -555,7 +582,7 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ onBrowse, onViewTicket 
                             <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 sticky top-0">
                                 <div>
                                     <h3 className="text-xl font-black text-slate-800 tracking-tight">
-                                        {new Date(showDatePopup).toLocaleDateString('en-US', {
+                                        {new Date(showDatePopup!).toLocaleDateString('en-US', {
                                             weekday: 'long',
                                             month: 'long',
                                             day: 'numeric'
@@ -640,7 +667,7 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ onBrowse, onViewTicket 
                     return slots;
                 };
                 const allSlots = booking.selected_slots
-                    ? booking.selected_slots.split(',').map(s => {
+                    ? booking.selected_slots!.split(',').map(s => {
                         // normalize to HH:MM-HH:MM
                         const parts = s.split('-');
                         return `${parts[0].slice(0, 5)}-${parts[1].slice(0, 5)}`;
@@ -648,7 +675,7 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ onBrowse, onViewTicket 
                     : buildSlots(booking.start_time, booking.end_time);
 
                 const allDates: string[] = booking.selected_dates
-                    ? booking.selected_dates.split(',').map(d => d.trim()).sort()
+                    ? booking.selected_dates!.split(',').map(d => d.trim()).sort()
                     : [booking.start_date.slice(0, 10)];
 
                 const isMultiDay = allDates.length > 1;
