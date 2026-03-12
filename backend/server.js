@@ -55,8 +55,39 @@ const PORT = process.env.PORT || 5000;
 
 // ┌─────────────────────────────────────────────────────────────────────────┐
 // │ MIDDLEWARE CONFIGURATION: Enable CORS and JSON parsing                  │
+// │                                                                           │
+// │ CORS Allowlist: set ALLOWED_ORIGINS in .env as a comma-separated list   │
+// │ e.g. ALLOWED_ORIGINS=https://myapp.vercel.app,https://myadmin.vercel.app│
 // └─────────────────────────────────────────────────────────────────────────┘
-app.use(cors());
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+    : [];
+
+// Always allow localhost for local development
+const DEFAULT_DEV_ORIGINS = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:3000',
+];
+
+const corsOptions = {
+    origin: (origin, callback) => {
+        // Allow requests with no origin (e.g., Postman, curl, server-to-server)
+        if (!origin) return callback(null, true);
+        const allowed = [...DEFAULT_DEV_ORIGINS, ...ALLOWED_ORIGINS];
+        if (allowed.includes(origin)) {
+            callback(null, true);
+        } else {
+            console.warn(`⚠️  CORS blocked origin: ${origin}`);
+            callback(new Error(`CORS policy: origin ${origin} not allowed`));
+        }
+    },
+    credentials: true,
+};
+
+app.use(cors(corsOptions));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

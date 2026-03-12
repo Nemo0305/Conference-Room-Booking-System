@@ -5,9 +5,12 @@
 export const getDirectImageUrl = (url: string | undefined): string => {
     if (!url) return '';
 
-    // Handle local uploads
+    // Handle local uploads (served from backend)
     if (url.startsWith('/uploads/')) {
-        return `http://localhost:5000${url}`;
+        const base = process.env.NEXT_PUBLIC_API_URL
+            ? process.env.NEXT_PUBLIC_API_URL.replace('/api', '')
+            : 'http://localhost:5000';
+        return `${base}${url}`;
     }
 
     // Google Drive conversion
